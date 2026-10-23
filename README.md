@@ -140,9 +140,9 @@ Switching focus to the left will calculate from the center of the east side of t
 
 Gaps improve the aesthetics of tiled windows and make it easier to grab the edge of a specific window. We've decided to add support for inner and outer gaps, and made these settings configurable in the extension's popup menu.
 
-### Hiding Window Title Bars
+### Window Controls
 
-GNOME 50 uses Wayland, where this extension cannot remove an application's client-drawn titlebar. The titlebar setting is disabled; all other panel indicator settings remain available. Windows can still be moved with `Super` plus mouse drag or Pop Shell's keyboard shortcuts, closed with `Super` + `Q`, and maximized with `Super` + `M`.
+Windows can be moved with `Super` plus mouse drag or Pop Shell's keyboard shortcuts, closed with `Super` + `Q`, and maximized with `Super` + `M`.
 
 ---
 
