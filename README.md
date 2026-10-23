@@ -62,30 +62,19 @@ There are additionally those who do want the traditional stacking window managem
 
 ## Installation
 
-Use the branch corresponding to your GNOME Shell version (`git checkout branch_name`):
+This branch targets **Ubuntu 26.04 and GNOME Shell 50 on Wayland**. Install `gnome-shell`, `gnome-extensions`, `dconf-cli`, `xdg-terminal-exec`, `python3`, `make`, and `node-typescript`, then run:
 
-- **GNOME 3.36 through 41:** Use the `master_focal` branch.
-- **GNOME 42 through 44:** Use the `master_jammy` branch.
-- **GNOME 45:** Use the `master_mantic` branch.
-- **GNOME 46+:** Use the `master_noble` branch.
+```sh
+make local-install
+```
 
-GNU Make and TypeScript are also required to build the project.
+Local installation enables the extension and automatically applies Pop Shell's familiar shortcuts. It saves the previous values to `~/.config/pop-shell/shortcut-backup.json`. `make uninstall` restores a value only when it still matches the one Pop Shell installed, so later user changes are preserved. Log out and back in if GNOME does not load the newly installed extension immediately.
 
-Proper functionality of the shell requires modifying GNOME's default keyboard shortcuts. For a local installation, run `make local-install`.
-
-If you want to uninstall the extension, you may invoke `make uninstall`, and then open the "Keyboard Shortcuts" panel in GNOME Settings to select the "Reset All.." button in the header bar.
-
-> Note that if you are packaging for your Linux distribution, many features in Pop Shell will not work out of the box because they require changes to GNOME's default keyboard shortcuts. A local install is necessary if you aren't packaging your GNOME session with these default keyboard shortcuts unset or changed.
+For a distribution package, install the package and run `python3 /usr/lib/pop-shell/scripts/shortcuts.py apply` in each user's session. Package installation cannot safely edit another user's DConf database. Run the same command with `restore` before removing the package if you want the previous shortcuts restored.
 
 ### Packaging status
 
-- [Fedora](https://src.fedoraproject.org/rpms/gnome-shell-extension-pop-shell/): `sudo dnf install gnome-shell-extension-pop-shell xprop`
-- [Gentoo](https://packages.gentoo.org/packages/gnome-extra/gnome-shell-extension-pop-shell): `emerge gnome-shell-extension-pop-shell`
-- [openSUSE Tumbleweed](https://build.opensuse.org/package/show/openSUSE:Factory/gnome-shell-extension-pop-shell): `sudo zypper install gnome-shell-extension-pop-shell`
-- [Arch Linux](https://aur.archlinux.org/packages/?O=0&K=gnome-shell-extension-pop-shell) (Using Yay as AUR helper):
-    - `yay -S gnome-shell-extension-pop-shell`
-    - For precompiled binary version: `yay -S gnome-shell-extension-pop-shell-bin`
-    - For GitHub repository version: `yay -S gnome-shell-extension-pop-shell-git`
+Ubuntu package builds are available from this source with `dpkg-buildpackage -us -uc -b`. The GNOME 50 extension itself is self-contained and does not depend on `pop-launcher` or `pop-shell-shortcuts`.
 
 ---
 
@@ -145,7 +134,7 @@ Switching focus to the left will calculate from the center of the east side of t
 
 ### Launcher
 
-Pop Shell provides an integrated launcher which interfaces directly with our [pop-launcher](https://github.com/pop-os/launcher) service. JSON IPC is used to communicate between the shell and the launcher in an asynchronous fashion. This functionality was separated from the shell due to performance and maintainability issues. The new launcher is written in Rust and fully async. The launcher has extensive features that would be useful for implementing desktop launchers beyond a shell extension.
+`Super` + `/` opens the built-in launcher for applications, settings, and open windows. Type `?` for a shortcut guide, `t:` to run a command in the default terminal, `:` to run a shell command, or `=` to calculate an arithmetic expression. The separate Pop launcher plugin ecosystem is not included in this GNOME 50 version.
 
 ### Inner and Outer Gaps
 
@@ -153,7 +142,7 @@ Gaps improve the aesthetics of tiled windows and make it easier to grab the edge
 
 ### Hiding Window Title Bars
 
-Windows with server-side decorations may have their title bars completely hidden, resulting in additional screen real estate for your applications, and a visually cleaner environment. This feature can be toggled in the extension's popup menu. Windows can be moved with the mouse by holding `Super` when clicking and dragging a window to another location, or using the keyboard shortcuts native to pop-shell. Windows may be closed by pressing `Super` + `Q`, and maximized with `Super` + `M`.
+GNOME 50 uses Wayland, where this extension cannot remove an application's client-drawn titlebar. The titlebar setting is disabled; all other panel indicator settings remain available. Windows can still be moved with `Super` plus mouse drag or Pop Shell's keyboard shortcuts, closed with `Super` + `Q`, and maximized with `Super` + `M`.
 
 ---
 
@@ -184,14 +173,7 @@ Disabled by default, this mode manages windows using a tree-based tiling window 
   - See [#customizing the window float list](#customizing-the-floating-window-list)
 
 ### Customizing the Floating Window List
-There is file `$XDG_CONFIG_HOME/pop-shell/config.json` where you can add the following structure:
-```
-{
-  class: "<WM_CLASS String from xprop>",
-  title: "<Optional Window Title>"
-}
-```
-For example, doing `xprop` on GNOME Settings (or GNOME Control Center), the WM_CLASS values are `gnome-control-center` and `Gnome-control-center`. Use the second value (Gnome-control-center), which pop-shell will read. The `title` field is optional.
+Use **Floating Window Exceptions** in the panel indicator to select an open window or its application. The extension saves the rule in `$XDG_CONFIG_HOME/pop-shell/config.json`. Rules can also be edited there in the `float` array; each rule has a `class` pattern and an optional `title` pattern. The indicator works with native Wayland windows, where `xprop` cannot inspect the window class.
 
 After applying changes in `config.json`, you can reload the tiling if it doesn't work the first time.
 
@@ -201,11 +183,10 @@ Due to the risky nature of plain JavaScript, this GNOME Shell extension is writt
 
 Please install the following as dependencies when developing:
 
-- [`Node.js`](https://nodejs.org/en/) LTS+ (v12+)
-- Latest `npm` (comes with NodeJS)
-- `npm install typescript@latest`
+- TypeScript (`node-typescript` on Ubuntu)
+- Node.js for the calculator self-check
 
-While working on the shell, you can recompile, reconfigure, reinstall, and restart GNOME Shell with logging with `make debug`. Note that this only works reliably in X11 sessions, since Wayland will exit to the login screen on restarting the shell.
+Build with `make all`, run the calculator and shortcut checks with `node tests/calculator.mjs` and `python3 -m unittest discover -s tests`, and use `make zip-file` to prepare an isolated GNOME Shell test package. On Wayland, test in a nested GNOME Shell session rather than restarting the live desktop.
 
 [Discussions welcome on Pop Chat](https://chat.pop-os.org/pop-os/channels/development)
 

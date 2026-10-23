@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+"""Apply Pop Shell's per-user GNOME shortcuts and restore prior values safely."""
+
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+
+WM = "/org/gnome/desktop/wm/keybindings/"
+SHELL = "/org/gnome/shell/keybindings/"
+MUTTER = "/org/gnome/mutter/keybindings/"
+MEDIA = "/org/gnome/settings-daemon/plugins/media-keys/"
+
+CHANGES = {
+    MUTTER + "toggle-tiled-left": "@as []",
+    MUTTER + "toggle-tiled-right": "@as []",
+    "/org/gnome/mutter/wayland/keybindings/restore-shortcuts": "@as []",
+    WM + "minimize": "@as ['<Super>comma']",
+    WM + "maximize": "@as []",
+    WM + "unmaximize": "@as []",
+    WM + "toggle-maximized": "@as ['<Super>m']",
+    WM + "close": "@as ['<Super>q', '<Alt>F4']",
+    SHELL + "toggle-message-tray": "@as ['<Super>v']",
+    SHELL + "toggle-overview": "@as []",
+    **{WM + f"{action}-{direction}": "@as []"
+       for action in ("switch-to-workspace", "move-to-monitor", "move-to-workspace")
+       for direction in ("left", "right", "up", "down")},
+    WM + "switch-to-workspace-down": "@as ['<Primary><Super>Down','<Primary><Super>j']",
+    WM + "switch-to-workspace-up": "@as ['<Primary><Super>Up','<Primary><Super>k']",
+    MEDIA + "screensaver": "@as ['<Super>Escape']",
+    MEDIA + "home": "@as ['<Super>f']",
+    MEDIA + "email": "@as ['<Super>e']",
+    MEDIA + "www": "@as ['<Super>b']",
+    MEDIA + "terminal": "@as ['<Super>t']",
+    MEDIA + "rotate-video-lock-static": "@as []",
+    "/org/gnome/shell/disable-user-extensions": "false",
+    "/org/gnome/mutter/workspaces-only-on-primary": "false",
+}
+
+BACKUP = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "pop-shell" / "shortcut-backup.json"
+
+
+def dconf(*args):
+    return subprocess.run(("dconf", *args), check=True, capture_output=True, text=True).stdout.strip()
+
+
+def apply():
+    if BACKUP.exists():
+        print(f"Pop Shell shortcut backup already exists: {BACKUP}")
+        return
+    previous = {}
+    for key, value in CHANGES.items():
+        old = dconf("read", key)
+        if old != value:
+            previous[key] = {"before": old, "applied": value}
+    BACKUP.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(BACKUP, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    with os.fdopen(fd, "w") as stream:
+        json.dump(previous, stream, indent=2)
+    try:
+        for key, values in previous.items():
+            dconf("write", key, values["applied"])
+    except Exception:
+        restore()
+        raise
+    print(f"Applied {len(previous)} Pop Shell shortcut and desktop settings")
+
+
+def restore():
+    if not BACKUP.exists():
+        return
+    previous = json.loads(BACKUP.read_text())
+    for key, values in previous.items():
+        if dconf("read", key) == values["applied"]:
+            if values["before"]:
+                dconf("write", key, values["before"])
+            else:
+                dconf("reset", key)
+    BACKUP.unlink()
+    print("Restored previous GNOME shortcuts where unchanged by the user")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2 or sys.argv[1] not in ("apply", "restore"):
+        raise SystemExit("usage: shortcuts.py apply|restore")
+    globals()[sys.argv[1]]()

@@ -64,6 +64,11 @@ declare module 'gi://Meta' {
     export default Meta;
 }
 
+declare module 'gi://Mtk' {
+    let Mtk: any;
+    export default Mtk;
+}
+
 declare module 'gi://Gtk' {
     let Gtk: any;
     export default Gtk;
@@ -355,8 +360,8 @@ declare namespace Shell {
 
         addButton(action: DialogButtonAction): void;
 
-        close(timestamp: number): void;
-        open(timestamp: number, on_primary: boolean): void;
+        close(): void;
+        open(): boolean;
 
         setInitialKeyFocus(actor: Clutter.Actor): void;
     }

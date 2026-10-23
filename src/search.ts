@@ -1,7 +1,7 @@
 import * as Lib from './lib.js';
 import * as rect from './rectangle.js';
 
-import type { JsonIPC } from './launcher_service.js';
+type IconSource = { Name: string } | { GIcon: any };
 
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
@@ -37,9 +37,6 @@ export class Search {
     private scroller: St.Widget;
     private children_to_abandon: any = null;
     private last_trigger: number = 0;
-
-    /** Output of `Main.pushModal`; Input to `Main.popModal()` */
-    private grab_handle: any = null;
 
     activate_id: (index: number) => void = () => {};
     cancel: () => void = () => {};
@@ -83,7 +80,7 @@ export class Search {
                 return;
             }
 
-            text_changed = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 0, () => {
+            text_changed = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 75, () => {
                 text_changed = null;
                 update();
                 return false;
@@ -219,7 +216,8 @@ export class Search {
         this.scroller = scroller;
 
         // Ensure that the width is at least 640 pixels wide.
-        this.dialog.contentLayout.width = Math.max(Lib.current_monitor().width / 4, 640);
+        const width = Lib.current_monitor().width;
+        this.dialog.contentLayout.width = Math.min(Math.max(width / 4, 480), width - 32);
 
         this.dialog.connect('event', (_actor: any, event: any) => {
             const { width, height } = this.dialog.dialogLayout._dialog;
@@ -259,26 +257,15 @@ export class Search {
     }
 
     close() {
-        try {
-            if (this.grab_handle !== null) {
-                Main.popModal(this.grab_handle);
-                this.grab_handle = null;
-            }
-        } catch (error) {
-            // global.logError(error);
-        }
-
         this.reset();
         this.remove_injections();
-
-        this.dialog.close(global.get_current_time());
+        this.dialog.close();
 
         wm.allowKeybinding('overlay-key', Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW);
     }
 
-    _open(timestamp: number, on_primary: boolean) {
-        this.grab_handle = Main.pushModal(this.dialog.dialogLayout);
-        this.dialog.open(timestamp, on_primary);
+    _open() {
+        if (!this.dialog.open()) return false;
 
         wm.allowKeybinding('overlay-key', Shell.ActionMode.ALL);
 
@@ -294,6 +281,7 @@ export class Search {
                 overview.toggle();
             }
         };
+        return true;
     }
 
     get_text(): string {
@@ -413,8 +401,8 @@ export class SearchOption {
     constructor(
         title: string,
         description: null | string,
-        category_icon: null | JsonIPC.IconSource,
-        icon: null | JsonIPC.IconSource,
+        category_icon: null | IconSource,
+        icon: null | IconSource,
         icon_size: number,
         exec: null | string,
         keywords: null | Array<string>,
@@ -452,7 +440,7 @@ export class SearchOption {
     }
 }
 
-function attach_icon(layout: any, icon: null | JsonIPC.IconSource, icon_size: number) {
+function attach_icon(layout: any, icon: null | IconSource, icon_size: number) {
     if (icon) {
         const generated = generate_icon(icon, icon_size);
 
@@ -463,10 +451,12 @@ function attach_icon(layout: any, icon: null | JsonIPC.IconSource, icon_size: nu
     }
 }
 
-function generate_icon(icon: JsonIPC.IconSource, icon_size: number): null | St.Widget {
+function generate_icon(icon: IconSource, icon_size: number): null | St.Widget {
     let app_icon = null;
 
-    if ('Name' in icon) {
+    if ('GIcon' in icon && icon.GIcon) {
+        app_icon = new St.Icon({ gicon: icon.GIcon, icon_size });
+    } else if ('Name' in icon) {
         const file = Gio.File.new_for_path(icon.Name);
 
         if (file.query_exists(null)) {
@@ -480,11 +470,6 @@ function generate_icon(icon: JsonIPC.IconSource, icon_size: number): null | St.W
                 icon_size,
             });
         }
-    } else if ('Mime' in icon) {
-        app_icon = new St.Icon({
-            gicon: Gio.content_type_get_icon(icon.Mime),
-            icon_size,
-        });
     }
 
     if (app_icon) {

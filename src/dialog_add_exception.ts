@@ -58,7 +58,7 @@ export class AddExceptionDialog {
     }
 
     close() {
-        this.dialog.close(global.get_current_time());
+        this.dialog.close();
     }
 
     show() {
@@ -66,7 +66,7 @@ export class AddExceptionDialog {
     }
 
     open() {
-        this.dialog.open(global.get_current_time(), false);
+        this.dialog.open();
         this.show();
     }
 }

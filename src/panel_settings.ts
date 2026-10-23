@@ -1,5 +1,3 @@
-import * as Utils from './utils.js';
-
 import type { Ext } from './extension.js';
 
 import Clutter from 'gi://Clutter';
@@ -14,7 +12,6 @@ import {
 } from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import GLib from 'gi://GLib';
-import { spawn } from 'resource:///org/gnome/shell/misc/util.js';
 import { get_current_path } from './paths.js';
 // import * as Settings from './settings.js';
 
@@ -23,7 +20,6 @@ export class Indicator {
     appearances: any;
 
     toggle_tiled: any;
-    toggle_titles: null | any;
     toggle_active: any;
     border_radius: any;
 
@@ -83,14 +79,9 @@ export class Indicator {
         bm.addMenuItem(floating_window_exceptions(ext, bm));
 
         bm.addMenuItem(menu_separator(''));
-        bm.addMenuItem(shortcuts(bm));
-        bm.addMenuItem(settings_button(bm));
+        bm.addMenuItem(shortcuts(ext, bm));
+        bm.addMenuItem(settings_button(ext, bm));
         bm.addMenuItem(menu_separator(''));
-
-        if (!Utils.is_wayland()) {
-            this.toggle_titles = show_title(ext);
-            bm.addMenuItem(this.toggle_titles);
-        }
 
         bm.addMenuItem(this.toggle_active);
         bm.addMenuItem(this.border_radius);
@@ -110,18 +101,18 @@ function menu_separator(text: any): any {
     return new PopupSeparatorMenuItem(text);
 }
 
-function settings_button(menu: any): any {
-    let item = new PopupMenuItem(_('View All'));
-    item.connect('activate', () => {
-        let path: string | null = GLib.find_program_in_path('pop-shell-shortcuts');
-        if (path) {
-            spawn([path]);
-        } else {
-            spawn(['xdg-open', 'https://support.system76.com/articles/pop-keyboard-shortcuts/']);
-        }
-
-        menu.close();
+function show_shortcut_guide(ext: Ext, menu: any) {
+    menu.close();
+    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+        ext.window_search.open(ext);
+        ext.window_search.set_text('?');
+        return false;
     });
+}
+
+function settings_button(ext: Ext, menu: any): any {
+    let item = new PopupMenuItem(_('Shortcut Guide'));
+    item.connect('activate', () => show_shortcut_guide(ext, menu));
 
     item.label.get_clutter_text().set_margin_left(12);
 
@@ -153,22 +144,13 @@ function floating_window_exceptions(ext: Ext, menu: any): any {
     return base;
 }
 
-function shortcuts(menu: any): any {
+function shortcuts(ext: Ext, menu: any): any {
     let layout_manager = new Clutter.GridLayout({ orientation: Clutter.Orientation.HORIZONTAL });
     let widget = new St.Widget({ layout_manager, x_expand: true });
 
     let item = new PopupBaseMenuItem();
     item.add_child(widget);
-    item.connect('activate', () => {
-        let path: string | null = GLib.find_program_in_path('pop-shell-shortcuts');
-        if (path) {
-            spawn([path]);
-        } else {
-            spawn(['xdg-open', 'https://support.system76.com/articles/pop-keyboard-shortcuts/']);
-        }
-
-        menu.close();
-    });
+    item.connect('activate', () => show_shortcut_guide(ext, menu));
 
     function create_label(text: string): any {
         return new St.Label({ text });
@@ -184,15 +166,7 @@ function shortcuts(menu: any): any {
     layout_manager.set_column_spacing(30);
     layout_manager.attach(create_label(_('Shortcuts')), 0, 0, 2, 1);
 
-    let launcher_shortcut = _('Super + /');
-    // const cosmic_settings = Settings.settings_new_id(
-    //   'org.gnome.shell.extensions.pop-cosmic'
-    // );
-    // if (cosmic_settings) {
-    //   if (cosmic_settings.get_enum('overlay-key-action') === 2) {
-    //     launcher_shortcut = _('Super');
-    //   }
-    // }
+    const launcher_shortcut = _('Super + /');
 
     [
         [_('Launcher'), launcher_shortcut],
@@ -221,8 +195,8 @@ function number_entry(
     callback: (a: number) => void,
 ): any {
     let value = valueOrOptions,
-        min: number,
-        max: number;
+        min = 0,
+        max = 128;
     if (typeof valueOrOptions !== 'number') ({ value, min, max } = valueOrOptions);
 
     const entry = new St.Entry({
@@ -238,7 +212,7 @@ function number_entry(
     });
 
     const text = entry.clutter_text;
-    text.set_max_length(2);
+    text.set_max_length(String(max ?? 128).length);
 
     entry.connect('key-release-event', (_: any, event: any) => {
         const symbol = event.get_key_symbol();
@@ -298,14 +272,6 @@ function parse_number(text: string): number {
     }
 
     return number;
-}
-
-function show_title(ext: Ext): any {
-    const t = toggle(_('Show Window Titles'), ext.settings.show_title(), (toggle: any) => {
-        ext.settings.set_show_title(toggle.state);
-    });
-
-    return t;
 }
 
 function toggle(desc: string, active: boolean, connect: (toggle: any, state: boolean) => void): any {

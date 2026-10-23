@@ -44,13 +44,7 @@ import Gio from 'gi://Gio';
 import St from 'gi://St';
 import Shell from 'gi://Shell';
 import Meta from 'gi://Meta';
-// Try to import Mtk for newer GNOME versions, fallback to Meta for older versions
-let Mtk: any;
-try {
-    Mtk = imports.gi.Mtk;
-} catch (e) {
-    Mtk = null;
-}
+import Mtk from 'gi://Mtk';
 const { GlobalEvent, WindowEvent } = Events;
 const { cursor_rect, is_keyboard_op, is_resize_op, is_move_op } = Lib;
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -62,7 +56,6 @@ const {
     setThemeStylesheet,
     screenShield,
     sessionMode,
-    windowAttentionHandler,
 } = Main;
 import { ScreenShield } from 'resource:///org/gnome/shell/ui/screenShield.js';
 import {
@@ -74,13 +67,11 @@ import {
 import { Workspace } from 'resource:///org/gnome/shell/ui/workspace.js';
 import { WorkspaceThumbnail } from 'resource:///org/gnome/shell/ui/workspaceThumbnail.js';
 import { WindowPreview } from 'resource:///org/gnome/shell/ui/windowPreview.js';
-import { PACKAGE_VERSION } from 'resource:///org/gnome/shell/misc/config.js';
 import * as Tags from './tags.js';
 import { get_current_path } from './paths.js';
 
 const STYLESHEET_PATHS = ['light', 'dark', 'highcontrast'].map(stylesheet_path);
 const STYLESHEETS = STYLESHEET_PATHS.map((path) => Gio.File.new_for_path(path));
-const GNOME_VERSION = PACKAGE_VERSION;
 
 enum Style {
     Light,
@@ -927,7 +918,6 @@ export class Ext extends Ecs.System<ExtEvent> {
                 `  name: ${win.name(this)},\n` +
                 `  rect: ${win.rect().fmt()},\n` +
                 `  workspace: ${win.workspace_id()},\n` +
-                `  xid: ${win.xid()},\n` +
                 `  stack: ${win.stack},\n`;
 
             if (this.auto_tiler) {
@@ -1670,24 +1660,6 @@ export class Ext extends Ecs.System<ExtEvent> {
         this.unset_grab_op();
     }
 
-    on_show_window_titles() {
-        const show_title = this.settings.show_title();
-
-        if (indicator) {
-            indicator.toggle_titles.setToggleState(show_title);
-        }
-
-        for (const window of this.windows.values()) {
-            if (window.is_client_decorated()) continue;
-
-            if (show_title) {
-                window.decoration_show(this);
-            } else {
-                window.decoration_hide(this);
-            }
-        }
-    }
-
     on_smart_gap() {
         if (this.auto_tiler) {
             const smart_gaps = this.settings.smart_gaps();
@@ -1911,14 +1883,12 @@ export class Ext extends Ecs.System<ExtEvent> {
                     if (indicator) indicator.toggle_active.setToggleState(this.settings.active_hint());
 
                     this.show_border_on_focused();
+                    break;
                 case 'gap-inner':
                     this.on_gap_inner();
                     break;
                 case 'gap-outer':
                     this.on_gap_outer();
-                    break;
-                case 'show-title':
-                    this.on_show_window_titles();
                     break;
                 case 'smart-gaps':
                     this.on_smart_gap();
@@ -2040,24 +2010,13 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.register({ tag: 3, window });
         });
 
-        if (GNOME_VERSION?.startsWith('3.')) {
-            this.connect(display, 'grab-op-begin', (_, _display, win, op) => {
-                this.on_grab_start(win, op);
-            });
+        this.connect(display, 'grab-op-begin', (_display, win, op) => {
+            this.on_grab_start(win, op);
+        });
 
-            this.connect(display, 'grab-op-end', (_, _display, win, op) => {
-                this.register_fn(() => this.on_grab_end(win, op));
-            });
-        } else {
-            // GNOME 40 removed the first argument of the callback
-            this.connect(display, 'grab-op-begin', (_display, win, op) => {
-                this.on_grab_start(win, op);
-            });
-
-            this.connect(display, 'grab-op-end', (_display, win, op) => {
-                this.register_fn(() => this.on_grab_end(win, op));
-            });
-        }
+        this.connect(display, 'grab-op-end', (_display, win, op) => {
+            this.register_fn(() => this.on_grab_end(win, op));
+        });
 
         this.connect(overview, 'window-drag-begin', (_, win) => {
             this.on_grab_start(win, 1);
@@ -2160,10 +2119,6 @@ export class Ext extends Ecs.System<ExtEvent> {
     /** Switch to a workspace by its index */
     switch_to_workspace(id: number) {
         this.workspace_by_id(id)?.activate(global.get_current_time());
-    }
-
-    stop_launcher_services() {
-        this.window_search.stop_services(this);
     }
 
     tab_list(tablist: number, workspace: Meta.Workspace | null): Array<Window.ShellWindow> {
@@ -2630,10 +2585,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     cursor_status(): [Rectangle, number] {
         const cursor = cursor_rect();
-        // Use Mtk.Rectangle if available (newer GNOME), otherwise fallback to Meta.Rectangle
-        const rect = Mtk ?
-            new Mtk.Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 }) :
-            new Meta.Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 });
+        const rect = new Mtk.Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 });
         const monitor = display.get_monitor_index_for_rect(rect);
         return [cursor, monitor];
     }
@@ -2705,8 +2657,6 @@ export default class PopShellExtension extends Extension {
         ext.injections_add();
         ext.signals_attach();
 
-        disable_window_attention_handler();
-
         layoutManager.addChrome(ext.overlay);
 
         if (!indicator) {
@@ -2733,7 +2683,7 @@ export default class PopShellExtension extends Extension {
             ext.injections_remove();
             ext.signals_remove();
             ext.exit_modes();
-            ext.stop_launcher_services();
+            ext.window_search.close();
             ext.hide_all_borders();
             ext.window_search.remove_injections();
 
@@ -2754,24 +2704,6 @@ export default class PopShellExtension extends Extension {
             indicator = null;
         }
 
-        enable_window_attention_handler();
-    }
-}
-
-const handler = windowAttentionHandler;
-
-function enable_window_attention_handler() {
-    if (handler && !handler._windowDemandsAttentionId) {
-        handler._windowDemandsAttentionId = global.display.connect('window-demands-attention', (display, window) => {
-            handler._onWindowDemandsAttention(display, window);
-        });
-    }
-}
-
-function disable_window_attention_handler() {
-    if (handler && handler._windowDemandsAttentionId) {
-        global.display.disconnect(handler._windowDemandsAttentionId);
-        handler._windowDemandsAttentionId = null;
     }
 }
 
@@ -2828,10 +2760,8 @@ function* iter_workspaces(manager: any): IterableIterator<[number, any]> {
 
 let default_isoverviewwindow_ws: any;
 let default_isoverviewwindow_ws_thumbnail: any;
-let default_init_appswitcher: any;
 let default_getwindowlist_windowswitcher: any;
 let default_getcaption_windowpreview: any;
-let default_getcaption_workspace: any;
 
 /**
  * Decorates the default gnome-shell workspace/overview handling
@@ -2856,41 +2786,17 @@ function _show_skip_taskbar_windows(ext: Ext) {
     if (!default_isoverviewwindow_ws) {
         default_isoverviewwindow_ws = Workspace.prototype._isOverviewWindow;
         Workspace.prototype._isOverviewWindow = function (win: any) {
-            let meta_win = win;
-            if (GNOME_VERSION?.startsWith('3.36')) meta_win = win.get_meta_window();
-            return is_valid_minimize_to_tray(meta_win, ext) || default_isoverviewwindow_ws(win);
+            return is_valid_minimize_to_tray(win, ext) || default_isoverviewwindow_ws(win);
         };
     }
 
-    // Handle _getCaption errors
-    if (GNOME_VERSION?.startsWith('3.36')) {
-        // imports.ui.windowPreview is not in 3.36,
-        // _getCaption() is still in workspace.js
-        if (!default_getcaption_workspace) {
-            default_getcaption_workspace = Workspace.prototype._getCaption;
-            // 3.36 _getCaption
-            Workspace.prototype._getCaption = function () {
-                let metaWindow = this._windowClone.metaWindow;
-                if (metaWindow.title) return metaWindow.title;
-
-                let tracker = Shell.WindowTracker.get_default();
-                let app = tracker.get_window_app(metaWindow);
-                return app ? app.get_name() : '';
-            };
-        }
-    } else {
-        if (!default_getcaption_windowpreview) {
-            default_getcaption_windowpreview = WindowPreview.prototype._getCaption;
-            log.debug(`override workspace._getCaption`);
-            // 3.38 _getCaption
-            WindowPreview.prototype._getCaption = function () {
-                if (this.metaWindow.title) return this.metaWindow.title;
-
-                let tracker = Shell.WindowTracker.get_default();
-                let app = tracker.get_window_app(this.metaWindow);
-                return app ? app.get_name() : '';
-            };
-        }
+    if (!default_getcaption_windowpreview) {
+        default_getcaption_windowpreview = WindowPreview.prototype._getCaption;
+        WindowPreview.prototype._getCaption = function () {
+            if (this.metaWindow.title) return this.metaWindow.title;
+            let app = Shell.WindowTracker.get_default().get_window_app(this.metaWindow);
+            return app ? app.get_name() : '';
+        };
     }
 
     // Handle the workspace thumbnail
@@ -3000,26 +2906,14 @@ function _hide_skip_taskbar_windows() {
         default_isoverviewwindow_ws = null;
     }
 
-    if (GNOME_VERSION?.startsWith('3.36')) {
-        if (default_getcaption_workspace) {
-            Workspace.prototype._getCaption = default_getcaption_workspace;
-            default_getcaption_workspace = null;
-        }
-    } else {
-        if (default_getcaption_windowpreview) {
-            WindowPreview.prototype._getCaption = default_getcaption_windowpreview;
-            default_getcaption_windowpreview = null;
-        }
+    if (default_getcaption_windowpreview) {
+        WindowPreview.prototype._getCaption = default_getcaption_windowpreview;
+        default_getcaption_windowpreview = null;
     }
 
     if (default_isoverviewwindow_ws_thumbnail) {
         WorkspaceThumbnail.prototype._isOverviewWindow = default_isoverviewwindow_ws_thumbnail;
         default_isoverviewwindow_ws_thumbnail = null;
-    }
-
-    if (default_init_appswitcher) {
-        // AppSwitcher.prototype._init = default_init_appswitcher;
-        default_init_appswitcher = null;
     }
 
     if (default_getwindowlist_windowswitcher) {

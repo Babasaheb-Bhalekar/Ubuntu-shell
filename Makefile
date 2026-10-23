@@ -8,11 +8,9 @@ endif
 
 ifeq ($(strip $(DESTDIR)),)
 INSTALLBASE = $(XDG_DATA_HOME)/gnome-shell/extensions
-PLUGIN_BASE = $(XDG_DATA_HOME)/pop-shell/launcher
 SCRIPTS_BASE = $(XDG_DATA_HOME)/pop-shell/scripts
 else
 INSTALLBASE = $(DESTDIR)/usr/share/gnome-shell/extensions
-PLUGIN_BASE = $(DESTDIR)/usr/lib/pop-shell/launcher
 SCRIPTS_BASE = $(DESTDIR)/usr/lib/pop-shell/scripts
 endif
 INSTALLNAME = $(UUID)
@@ -32,13 +30,13 @@ clean:
 
 # Configure local settings on system
 configure:
-	sh scripts/configure.sh
+	python3 scripts/shortcuts.py apply
 
 compile: $(sources) clean
 	env PROJECTS="$(PROJECTS)" ./scripts/transpile.sh
 
-# Rebuild, install, reconfigure local settings, restart shell, and listen to journalctl logs
-debug: depcheck compile install configure enable restart-shell listen
+# Rebuild, install, apply local shortcuts, and listen to shell logs
+debug: depcheck compile install configure enable listen
 
 depcheck:
 	@echo depcheck
@@ -57,35 +55,20 @@ disable:
 listen:
 	journalctl -o cat -n 0 -f "$$(which gnome-shell)" | grep -v warning
 
-local-install: depcheck compile install configure restart-shell enable
+local-install: depcheck compile install configure enable
 
 install:
 	rm -rf $(INSTALLBASE)/$(INSTALLNAME)
-	mkdir -p $(INSTALLBASE)/$(INSTALLNAME) $(PLUGIN_BASE) $(SCRIPTS_BASE)
+	mkdir -p $(INSTALLBASE)/$(INSTALLNAME) $(SCRIPTS_BASE)
 	cp -r _build/* $(INSTALLBASE)/$(INSTALLNAME)/
+	cp scripts/shortcuts.py $(SCRIPTS_BASE)/
 
 uninstall:
+	python3 scripts/shortcuts.py restore
 	rm -rf $(INSTALLBASE)/$(INSTALLNAME)
 
-restart-shell:
-	@echo "Restart shell!"
-ifneq ($(WAYLAND_DISPLAY),) # Don't restart if WAYLAND_DISPLAY is set
-	@echo "WAYLAND_DISPLAY is set, not restarting shell";
-else
-	if bash -c 'xprop -root &> /dev/null'; then \
-		pkill -HUP gnome-shell; \
-	else \
-		gnome-session-quit --logout; \
-	fi
-	sleep 3
-endif
-
-update-repository:
-	git fetch origin
-	git reset --hard origin/master
-	git clean -fd
-
 zip-file: all
+	rm -f "$(UUID)_$(VERSION).zip"
 	cd _build && zip -qr "../$(UUID)_$(VERSION).zip" .
 
 .NOTPARALLEL: debug local-install

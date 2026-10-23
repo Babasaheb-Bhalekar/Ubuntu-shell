@@ -43,10 +43,7 @@ function settings_dialog_new(): Gtk.Container {
     let ext = new settings.ExtensionSettings();
 
     app.window_titles.set_active(ext.show_title());
-    app.window_titles.connect('state-set', (_widget: any, state: boolean) => {
-        ext.set_show_title(state);
-        Settings.sync();
-    });
+    app.window_titles.set_sensitive(false);
 
     app.snap_to_grid.set_active(ext.snap_to_grid());
     app.snap_to_grid.connect('state-set', (_widget: any, state: boolean) => {
@@ -137,7 +134,7 @@ function settings_dialog_view(): [AppWidgets, Gtk.Container] {
     });
 
     const win_label = new Gtk.Label({
-        label: 'Show Window Titles',
+        label: 'Show Window Titles (unavailable on Wayland)',
         xalign: 0.0,
         hexpand: true,
     });

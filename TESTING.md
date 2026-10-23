@@ -2,6 +2,21 @@
 
 This document provides a guideline for testing and verifying the expected behaviors of the project. When a patch is ready for testing, the checklists may be copied and marked as they are proven to be working.
 
+## Ubuntu 26.04 / GNOME 50 checks
+
+Build and run the repeatable checks with:
+
+```sh
+make zip-file
+node tests/calculator.mjs
+gjs -m tests/config.js
+python3 -m unittest discover -s tests
+dbus-run-session -- gnome-shell-test-tool --headless --extension pop-shell@system76.com_1.2.0.zip tests/gnome50.js
+dbus-run-session -- gnome-shell-test-tool --headless --extension pop-shell@system76.com_1.2.0.zip tests/tiling-gnome50.js
+```
+
+The headless tests cover extension enable/disable, the panel tiling switch, `Super+Y`'s configured binding, launcher search and commands, and tiling of two Wayland app windows. The remaining checklist below is for manual testing in a GNOME 50 Wayland session, particularly keyboard events, mouse resizing and dragging, workspaces, monitor hotplug, fullscreen behavior, and the preferences dialog.
+
 ## Logs
 
 To begin watching logs, open a terminal with the following command:

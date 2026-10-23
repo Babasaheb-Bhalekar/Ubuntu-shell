@@ -5,13 +5,8 @@ import * as log from './log.js';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
-import Meta from 'gi://Meta';
 const { Ok, Err } = result;
 const { Error } = error;
-
-export function is_wayland(): boolean {
-    return Meta.is_wayland_compositor();
-}
 
 export function block_signal(object: GObject.Object, signal: SignalID) {
     GObject.signal_handler_block(object, signal);

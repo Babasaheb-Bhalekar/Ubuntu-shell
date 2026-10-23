@@ -1,3 +1,11 @@
+pop-shell (1.2.0) resolute; urgency=medium
+
+  * Port Pop Shell to GNOME Shell 50 on Ubuntu 26.04.
+  * Replace the external launcher with built-in application and window search.
+  * Preserve Pop Shell shortcuts with reversible per-user configuration.
+
+ -- babasaheb <babasahebbhalekar8245@gmail.com>  Fri, 23 Oct 2026 15:45:00 +0530
+
 pop-shell (1.1.0) focal; urgency=medium
 
   * Bug fixes & Launcher update w/ plugin support

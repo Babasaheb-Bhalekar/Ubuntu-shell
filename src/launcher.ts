@@ -1,358 +1,184 @@
 import * as search from './search.js';
-import * as utils from './utils.js';
-import * as arena from './arena.js';
 import * as log from './log.js';
-import * as service from './launcher_service.js';
-import * as context from './context.js';
-
+import { calculate } from './calculator.js';
 import type { Ext } from './extension.js';
 import type { ShellWindow } from './window.js';
-import type { JsonIPC } from './launcher_service.js';
-
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
-import Gio from 'gi://Gio';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
-const app_sys = Shell.AppSystem.get_default();
+const apps = Shell.AppSystem.get_default();
+const clipboard = St.Clipboard.get_default();
+const settingsPanels = [
+    'applications', 'background', 'bluetooth', 'color', 'display', 'keyboard',
+    'mouse', 'multitasking', 'network', 'wifi', 'notifications', 'online-accounts',
+    'power', 'printers', 'privacy', 'search', 'sharing', 'sound', 'system',
+    'universal-access', 'wacom', 'wellbeing', 'wwan',
+];
 
-const Clipboard = St.Clipboard.get_default();
-const CLIPBOARD_TYPE = St.ClipboardType.CLIPBOARD;
+interface Result {
+    name: string;
+    description: string;
+    icon: any;
+    activate: () => void;
+    window?: ShellWindow;
+    complete?: string;
+}
 
-interface SearchOption {
-    result: JsonIPC.SearchResult;
-    menu: St.Widget;
+function launch(argv: string[]) {
+    try {
+        Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE);
+    } catch (error) {
+        log.error(`could not launch ${argv[0]}: ${error}`);
+    }
 }
 
 export class Launcher extends search.Search {
     ext: Ext;
-    options: Map<number, SearchOption> = new Map();
-    options_array: Array<SearchOption> = new Array();
-    windows: arena.Arena<ShellWindow> = new arena.Arena();
-    service: null | service.LauncherService = null;
-    append_id: null | number = null;
-    active_menu: null | any = null;
-    opened: boolean = false;
+    results: Result[] = [];
+    opened = false;
 
     constructor(ext: Ext) {
         super();
-
         this.ext = ext;
-
         this.dialog.dialogLayout._dialog.y_align = Clutter.ActorAlign.START;
         this.dialog.dialogLayout._dialog.x_align = Clutter.ActorAlign.START;
-        this.dialog.dialogLayout.y = 48;
-
         this.cancel = () => {
             ext.overlay.visible = false;
-            this.stop_services(ext);
             this.opened = false;
         };
-
-        this.search = (pat: string) => {
-            if (this.service !== null) {
-                this.service.query(pat);
-            }
-        };
-
-        this.select = (id: number) => {
+        this.search = (query) => this.update(query);
+        this.select = (index) => {
             ext.overlay.visible = false;
-
-            if (id >= this.options.size) return;
-
-            const option = this.options_array[id];
-            if (option && option.result.window) {
-                const win = this.ext.windows.get(option.result.window);
-                if (!win) return;
-
-                if (win.workspace_id() == ext.active_workspace()) {
-                    const { x, y, width, height } = win.rect();
-                    ext.overlay.x = x;
-                    ext.overlay.y = y;
-                    ext.overlay.width = width;
-                    ext.overlay.height = height;
-                    ext.overlay.visible = true;
-                }
+            const win = this.results[index]?.window;
+            if (win && win.workspace_id() === ext.active_workspace()) {
+                const { x, y, width, height } = win.rect();
+                Object.assign(ext.overlay, { x, y, width, height, visible: true });
             }
         };
-
-        this.activate_id = (id: number) => {
-            ext.overlay.visible = false;
-
-            const selected = this.options_array[id];
-
-            if (selected) {
-                this.service?.activate(selected.result.id);
-            }
+        this.activate_id = (index) => {
+            const result = this.results[index];
+            if (!result) return;
+            this.close();
+            result.activate();
         };
-
         this.complete = () => {
-            const option = this.options_array[this.active_id];
-            if (option) {
-                this.service?.complete(option.result.id);
-            }
+            const result = this.results[this.active_id];
+            if (result?.complete) this.set_text(result.complete);
         };
-
-        this.quit = (id: number) => {
-            const option = this.options_array[id];
-            if (option) {
-                this.service?.quit(option.result.id);
-            }
-        };
-
-        this.copy = (id: number) => {
-            const option = this.options_array[id];
-            if (!option) return;
-            if (option.result.description) {
-                Clipboard.set_text(CLIPBOARD_TYPE, option.result.description);
-            } else if (option.result.name) {
-                Clipboard.set_text(CLIPBOARD_TYPE, option.result.name);
-            }
+        this.quit = (index) => this.results[index]?.window?.meta.delete(global.get_current_time());
+        this.copy = (index) => {
+            const result = this.results[index];
+            if (result) clipboard.set_text(St.ClipboardType.CLIPBOARD, result.description || result.name);
         };
     }
 
-    on_response(response: JsonIPC.Response) {
-        if ('Close' === response) {
-            this.close();
-        } else if ('Update' in response) {
-            this.clear();
-
-            if (this.append_id !== null) {
-                GLib.source_remove(this.append_id);
-                this.append_id = null;
-            }
-
-            if (response.Update.length === 0) {
-                this.cleanup();
-                return;
-            }
-
-            this.append_id = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                const item = response.Update.shift();
-                if (item) {
-                    try {
-                        const button = new search.SearchOption(
-                            item.name,
-                            item.description,
-                            item.category_icon ? item.category_icon : null,
-                            item.icon ? item.icon : null,
-                            this.icon_size(),
-                            null,
-                            null,
-                        );
-
-                        const menu = context.addMenu(button.widget, (menu) => {
-                            if (this.active_menu) {
-                                this.active_menu.actor.hide();
-                            }
-
-                            this.active_menu = menu;
-
-                            this.service?.context(item.id);
-                        });
-
-                        this.append_search_option(button);
-                        const result = { result: item, menu };
-                        this.options.set(item.id, result);
-                        this.options_array.push(result);
-                    } catch (error) {
-                        log.error(`failed to create SearchOption: ${error}`);
-                    }
-                }
-
-                if (response.Update.length === 0) {
-                    this.append_id = null;
-                    return false;
-                }
-
-                return true;
-            });
-        } else if ('Fill' in response) {
-            this.set_text(response.Fill);
-        } else if ('DesktopEntry' in response) {
-            this.launch_desktop_entry(response.DesktopEntry);
-            this.close();
-        } else if ('Context' in response) {
-            const { id, options } = response.Context;
-
-            const option = this.options.get(id);
-            if (option) {
-                (option.menu as any).removeAll();
-                for (const opt of options) {
-                    context.addContext(option.menu, opt.name, () => {
-                        this.service?.activate_context(id, opt.id);
-                    });
-
-                    (option.menu as any).toggle();
-                }
-            } else {
-                log.error(`did not find id: ${id}`);
-            }
-        } else {
-            log.error(`unknown response: ${JSON.stringify(response)}`);
+    private update(query: string) {
+        if (!this.opened) return;
+        this.results = this.find(query).slice(0, this.list_max);
+        this.clear();
+        for (const result of this.results) {
+            this.append_search_option(new search.SearchOption(
+                result.name, result.description, null, result.icon,
+                this.icon_size(), null, null,
+            ));
         }
+        this.cleanup();
     }
 
-    clear() {
-        this.options.clear();
-        this.options_array.splice(0);
-        super.clear();
+    private find(query: string): Result[] {
+        if (query.startsWith('?')) {
+            return [
+                ['Super + Y', 'Toggle tiling'],
+                ['Super + /', 'Open launcher'],
+                ['Super + arrows / H J K L', 'Focus windows'],
+                ['Super + Return', 'Window adjustment mode'],
+                ['Super + G / O / S', 'Floating / orientation / stacking'],
+                ['t:command', 'Run in default terminal'],
+                [':command / =expression', 'Run shell command / calculate'],
+            ].map(([name, description]) => ({ name, description, icon: null, activate: () => {} }));
+        }
+        if (query.startsWith('t:') || query.startsWith(':')) {
+            const terminal = query.startsWith('t:');
+            const command = query.slice(terminal ? 2 : 1).trim();
+            return [{
+                name: terminal ? 'Run in terminal' : 'Run command',
+                description: command || 'Type a command',
+                icon: { Name: terminal ? 'utilities-terminal-symbolic' : 'system-run-symbolic' },
+                activate: () => {
+                    if (command) launch(terminal
+                        ? ['xdg-terminal-exec', '--', 'sh', '-c', command]
+                        : ['sh', '-c', command]);
+                },
+            }];
+        }
+        if (query.startsWith('=')) {
+            const answer = calculate(query.slice(1));
+            return answer === null ? [] : [{
+                name: String(answer), description: 'Copy result', icon: { Name: 'accessories-calculator-symbolic' },
+                activate: () => clipboard.set_text(St.ClipboardType.CLIPBOARD, String(answer)),
+            }];
+        }
+
+        const needle = query.toLocaleLowerCase();
+        const windows: Result[] = this.ext.tab_list(Meta.TabList.NORMAL_ALL, null)
+            .filter((win) => win.meta.get_title()?.toLocaleLowerCase().includes(needle))
+            .map((win) => ({
+                name: win.meta.get_title() || 'Window',
+                description: win.window_app?.get_name?.() || 'Open window',
+                icon: { GIcon: win.window_app?.get_app_info?.()?.get_icon?.() },
+                window: win,
+                activate: () => win.activate(),
+            }));
+        const installed: Result[] = apps.get_installed()
+            .filter((info: any) => info.should_show())
+            .filter((info: any) => {
+                return `${info.get_name()} ${info.get_description() || ''} ${info.get_id()}`
+                    .toLocaleLowerCase().includes(needle);
+            })
+            .sort((a: any, b: any) => a.get_name().localeCompare(b.get_name()))
+            .map((info: any) => ({
+                name: info.get_name(),
+                description: info.get_description() || 'Application',
+                icon: { GIcon: info.get_icon() },
+                activate: () => {
+                    const app = apps.lookup_app(info.get_id());
+                    if (app) app.activate();
+                    else info.launch([], null);
+                },
+            }));
+        const panels: Result[] = needle && GLib.find_program_in_path('gnome-control-center')
+            ? settingsPanels.filter(panel => panel.replace('-', ' ').includes(needle)).map(panel => ({
+                name: `${panel.replace(/(^|-)(\w)/g, (_match, _sep, letter) => ` ${letter.toUpperCase()}`).trim()} Settings`,
+                description: 'GNOME Settings panel',
+                icon: { Name: 'preferences-system-symbolic' },
+                activate: () => launch(['gnome-control-center', panel]),
+            }))
+            : [];
+        return [...windows, ...panels, ...installed];
     }
 
-    launch_desktop_app(app: any, path: string) {
-        try {
-            app.launch([], null);
-        } catch (why) {
-            log.error(`${path}: could not launch by app info: ${why}`);
-        }
-    }
-
-    launch_desktop_entry(entry: JsonIPC.DesktopEntry) {
-        const basename = (name: string): string => {
-            return name.substr(name.indexOf('/applications/') + 14).replace('/', '-');
-        };
-
-        const desktop_entry_id = basename(entry.path);
-
-        const gpuPref = entry.gpu_preference === 'Default' ? Shell.AppLaunchGpu.DEFAULT : Shell.AppLaunchGpu.DISCRETE;
-
-        log.debug(`launching desktop entry: ${desktop_entry_id}`);
-
-        let app = app_sys.lookup_desktop_wmclass(desktop_entry_id);
-
-        if (!app) {
-            app = app_sys.lookup_app(desktop_entry_id);
-        }
-
-        if (!app) {
-            log.error(`GNOME Shell cannot find desktop entry for ${desktop_entry_id}`);
-            log.error(`pop-launcher will use Gio.DesktopAppInfo instead`);
-
-            const dapp = Gio.DesktopAppInfo.new_from_filename(entry.path);
-
-            if (!dapp) {
-                log.error(`could not find desktop entry for ${entry.path}`);
-                return;
-            }
-
-            this.launch_desktop_app(dapp, entry.path);
-            return;
-        }
-
-        const info = app.get_app_info();
-
-        if (!info) {
-            log.error(`cannot find app info for ${desktop_entry_id}`);
-            return;
-        }
-
-        try {
-            app.launch(0, -1, gpuPref);
-        } catch (why) {
-            log.error(`failed to launch application: ${why}`);
-            return;
-        }
-
-        if (info.get_executable() === 'gnome-control-center') {
-            app = app_sys.lookup_app('gnome-control-center.desktop');
-
-            if (!app) return;
-
-            app.activate();
-
-            const window: Meta.Window = app.get_windows()[0];
-
-            if (window) {
-                window.get_workspace().activate_with_focus(window, global.get_current_time());
-                return;
-            }
-        }
-    }
-
-    list_workspace(ext: Ext) {
-        for (const window of ext.tab_list(Meta.TabList.NORMAL, null)) {
-            this.windows.insert(window);
-        }
-    }
-
-    load_desktop_files() {
-        log.warn('pop-shell: deprecated function called (launcher::load_desktop_files)');
-    }
-
-    locate_by_app_info(info: any): null | ShellWindow {
-        const workspace = this.ext.active_workspace();
-        const exec_info: null | string = info.get_string('Exec');
-        const exec = exec_info?.split(' ').shift()?.split('/').pop();
-        if (exec) {
-            for (const window of this.ext.tab_list(Meta.TabList.NORMAL, null)) {
-                if (window.meta.get_workspace().index() !== workspace) continue;
-
-                const pid = window.meta.get_pid();
-                if (pid !== -1) {
-                    try {
-                        let f = Gio.File.new_for_path(`/proc/${pid}/cmdline`);
-                        const [, bytes] = f.load_contents(null);
-                        const output: string = imports.byteArray.toString(bytes);
-                        const cmd = output.split(' ').shift()?.split('/').pop();
-                        if (cmd === exec) return window;
-                    } catch (_) {}
-                }
-            }
-        }
-
-        return null;
+    close() {
+        this.opened = false;
+        this.ext.overlay.visible = false;
+        super.close();
     }
 
     open(ext: Ext) {
         ext.tiler.exit(ext);
-
-        // Do not allow opening twice
-        if (this.opened) return;
-
-        // Do not activate if the focused window is fullscreen
-        if (!ext.settings.fullscreen_launcher() && ext.focus_window()?.meta.is_fullscreen()) return;
-
+        if (this.opened || (!ext.settings.fullscreen_launcher() && ext.focus_window()?.meta.is_fullscreen())) return;
         this.opened = true;
-
-        const active_monitor = ext.active_monitor();
-        const mon_work_area = ext.monitor_work_area(active_monitor);
-        const mon_area = ext.monitor_area(active_monitor);
-        const mon_width = mon_area ? mon_area.width : mon_work_area.width;
-
-        super._open(global.get_current_time(), false);
-
-        if (!this.dialog.visible) {
-            this.clear();
-            this.cancel();
+        const monitor = ext.monitor_work_area(ext.active_monitor());
+        if (!super._open()) {
             this.close();
+            this.cancel();
             return;
         }
-
-        super.cleanup();
-        this.start_services();
-        this.search('');
-
-        this.dialog.dialogLayout.x = mon_width / 2 - this.dialog.dialogLayout.width / 2;
-
-        let height = mon_work_area.height >= 900 ? mon_work_area.height / 2 : mon_work_area.height / 3.5;
-        this.dialog.dialogLayout.y = height - this.dialog.dialogLayout.height / 2;
-    }
-
-    start_services() {
-        if (this.service === null) {
-            log.debug('starting pop-launcher service');
-            const ipc = utils.async_process_ipc(['pop-launcher']);
-            this.service = ipc ? new service.LauncherService(ipc, (resp) => this.on_response(resp)) : null;
-        }
-    }
-
-    stop_services(_ext: Ext) {
-        if (this.service !== null) {
-            log.info(`stopping pop-launcher services`);
-            this.service.exit();
-            this.service = null;
-        }
+        this.update('');
+        this.dialog.dialogLayout.x = monitor.x + (monitor.width - this.dialog.dialogLayout.width) / 2;
+        this.dialog.dialogLayout.y = monitor.y + Math.max(48, monitor.height / 4 - this.dialog.dialogLayout.height / 2);
     }
 }

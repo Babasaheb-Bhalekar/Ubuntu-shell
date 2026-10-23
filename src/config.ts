@@ -79,6 +79,15 @@ export const SKIPTASKBAR_EXCEPTIONS: Array<WindowRule> = [
     { class: 'plank' },
 ];
 
+function matches(pattern: string | undefined, value: string | null): boolean {
+    if (!pattern) return true;
+    try {
+        return new RegExp(pattern, 'i').test(value || '');
+    } catch (_) {
+        return false;
+    }
+}
+
 export interface FloatRule {
     class?: string;
     title?: string;
@@ -119,17 +128,7 @@ export class Config {
 
     window_shall_float(wclass: string, title: string): boolean {
         for (const rule of this.float.concat(DEFAULT_FLOAT_RULES)) {
-            if (rule.class) {
-                if (!new RegExp(rule.class, 'i').test(wclass)) {
-                    continue;
-                }
-            }
-
-            if (rule.title) {
-                if (!new RegExp(rule.title, 'i').test(title)) {
-                    continue;
-                }
-            }
+            if (!matches(rule.class, wclass) || !matches(rule.title, title)) continue;
 
             return rule.disabled ? false : true;
         }
@@ -144,21 +143,10 @@ export class Config {
         if (!meta_window.is_skip_taskbar()) return false;
 
         for (const rule of this.skiptaskbarhidden.concat(SKIPTASKBAR_EXCEPTIONS)) {
-            if (rule.class) {
-                if (!new RegExp(rule.class, 'i').test(wmclass)) {
-                    continue;
-                }
-            }
-
-            if (rule.title) {
-                if (!new RegExp(rule.title, 'i').test(wmtitle)) {
-                    continue;
-                }
-            }
+            if (!matches(rule.class, wmclass) || !matches(rule.title, wmtitle)) continue;
 
             return rule.disabled ? false : true;
         }
-
         return false;
     }
 
@@ -192,8 +180,7 @@ export class Config {
         if (disabled) {
             for (const value of DEFAULT_FLOAT_RULES) {
                 if (value.class === wmclass && value.title === wmtitle) {
-                    value.disabled = disabled;
-                    this.float.push(value);
+                    this.float.push({ ...value, disabled });
                     this.sync_to_disk();
                     return;
                 }
@@ -216,21 +203,9 @@ export class Config {
     }
 
     remove_user_exception(wmclass: string | undefined, wmtitle: string | undefined) {
-        let index = 0;
-        let found = new Array();
-        for (const value of this.float.values()) {
-            if (value.class === wmclass && value.title === wmtitle) {
-                found.push(index);
-            }
-
-            index += 1;
-        }
-
-        if (found.length !== 0) {
-            for (const idx of found) swap_remove(this.float, idx);
-
-            this.sync_to_disk();
-        }
+        const previous = this.float.length;
+        this.float = this.float.filter(value => value.class !== wmclass || value.title !== wmtitle);
+        if (this.float.length !== previous) this.sync_to_disk();
     }
 
     static from_json(json: string): Config {
