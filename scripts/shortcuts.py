@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Apply Pop Shell's per-user GNOME shortcuts and restore prior values safely."""
 
+import ast
 import json
 import os
 from pathlib import Path
@@ -40,6 +41,7 @@ CHANGES = {
 }
 
 BACKUP = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "pop-shell" / "shortcut-backup.json"
+UUID = "pop-shell@system76.com"
 
 
 def dconf(*args):
@@ -82,7 +84,24 @@ def restore():
     print("Restored previous GNOME shortcuts where unchanged by the user")
 
 
+def enable():
+    """Queue a new extension for the next GNOME Shell login."""
+    current = subprocess.run(
+        ("gsettings", "get", "org.gnome.shell", "enabled-extensions"),
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    enabled = ast.literal_eval(current.removeprefix("@as "))
+    if not isinstance(enabled, list) or not all(isinstance(item, str) for item in enabled):
+        raise ValueError("Unexpected GNOME enabled-extensions value")
+    if UUID not in enabled:
+        enabled.append(UUID)
+        subprocess.run(
+            ("gsettings", "set", "org.gnome.shell", "enabled-extensions", repr(enabled)),
+            check=True,
+        )
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in ("apply", "restore"):
-        raise SystemExit("usage: shortcuts.py apply|restore")
+    if len(sys.argv) != 2 or sys.argv[1] not in ("apply", "restore", "enable"):
+        raise SystemExit("usage: shortcuts.py apply|restore|enable")
     globals()[sys.argv[1]]()

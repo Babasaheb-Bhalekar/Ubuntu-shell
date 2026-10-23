@@ -47,7 +47,12 @@ depcheck:
 	fi
 
 enable:
-	gnome-extensions enable "pop-shell@system76.com"
+	@if gnome-extensions info "$(UUID)" >/dev/null 2>&1; then \
+		gnome-extensions enable "$(UUID)"; \
+	else \
+		python3 scripts/shortcuts.py enable || exit $$?; \
+		echo 'Pop Shell is installed. Log out and back in to load it in GNOME Wayland.'; \
+	fi
 
 disable:
 	gnome-extensions disable "pop-shell@system76.com"

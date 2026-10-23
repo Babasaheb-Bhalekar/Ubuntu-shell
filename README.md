@@ -68,7 +68,7 @@ This branch targets **Ubuntu 26.04 and GNOME Shell 50 on Wayland**. Install `gno
 make local-install
 ```
 
-Local installation enables the extension and automatically applies Pop Shell's familiar shortcuts. It saves the previous values to `~/.config/pop-shell/shortcut-backup.json`. `make uninstall` restores a value only when it still matches the one Pop Shell installed, so later user changes are preserved. Log out and back in if GNOME does not load the newly installed extension immediately.
+Local installation enables the extension and automatically applies Pop Shell's familiar shortcuts. It saves the previous values to `~/.config/pop-shell/shortcut-backup.json`. `make uninstall` restores a value only when it still matches the one Pop Shell installed, so later user changes are preserved. On a first install in GNOME Wayland, log out and back in to let GNOME discover the extension.
 
 For a distribution package, install the package and run `python3 /usr/lib/pop-shell/scripts/shortcuts.py apply` in each user's session. Package installation cannot safely edit another user's DConf database. Run the same command with `restore` before removing the package if you want the previous shortcuts restored.
 

@@ -1,4 +1,5 @@
 import importlib.util
+from subprocess import CompletedProcess
 from pathlib import Path
 import stat
 import tempfile
@@ -13,6 +14,22 @@ spec.loader.exec_module(shortcuts)
 
 
 class ShortcutTest(unittest.TestCase):
+    def test_enable_preserves_existing_extensions(self):
+        commands = []
+
+        def fake_run(args, **_kwargs):
+            commands.append(args)
+            return CompletedProcess(args, 0, "['existing@example.com']")
+
+        with patch.object(shortcuts.subprocess, "run", fake_run):
+            shortcuts.enable()
+
+        self.assertEqual(
+            commands[-1],
+            ("gsettings", "set", "org.gnome.shell", "enabled-extensions",
+             "['existing@example.com', 'pop-shell@system76.com']"),
+        )
+
     def test_apply_and_restore_preserve_later_user_change(self):
         with tempfile.TemporaryDirectory() as directory:
             state = {"/one": "'old'", "/two": "'other'"}
