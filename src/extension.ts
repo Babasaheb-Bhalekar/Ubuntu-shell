@@ -752,6 +752,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     on_active_workspace_changed() {
+        this.hide_all_borders();
         this.register_fn(() => {
             this.exit_modes();
             this.restack();
@@ -790,6 +791,8 @@ export class Ext extends Ecs.System<ExtEvent> {
                     }
                 }
             }
+
+            this.hide_all_borders();
         });
     }
 
@@ -900,10 +903,10 @@ export class Ext extends Ecs.System<ExtEvent> {
             ) {
                 if (prev.rect().contains(win.rect())) {
                     if (prev.is_maximized()) {
-                        prev.meta.unmaximize(Meta.MaximizeFlags.BOTH);
+                        prev.meta.unmaximize();
                     }
                 } else if (prev.stack) {
-                    prev.meta.unmaximize(Meta.MaximizeFlags.BOTH);
+                    prev.meta.unmaximize();
                     this.auto_tiler.forest.stacks.get(prev.stack)?.restack();
                 }
             }
@@ -1024,7 +1027,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                     compare.is_maximized() &&
                     win.entity[0] !== compare.entity[0]
                 ) {
-                    compare.meta.unmaximize(Meta.MaximizeFlags.BOTH);
+                    compare.meta.unmaximize();
                 }
             }
         }
@@ -1248,9 +1251,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
             if (this.auto_tiler) {
                 if (this.is_floating(win)) {
-                    win.meta.unmaximize(Meta.MaximizeFlags.HORIZONTAL);
-                    win.meta.unmaximize(Meta.MaximizeFlags.VERTICAL);
-                    win.meta.unmaximize(Meta.MaximizeFlags.BOTH);
+                    win.meta.unmaximize();
                 }
 
                 this.register(Events.window_move(this, win, rect));
@@ -1948,6 +1949,8 @@ export class Ext extends Ecs.System<ExtEvent> {
                     }
                 }
 
+                this.hide_all_borders();
+
                 const refocus_tiled_window = () => {
                     // Re-focus a window that was unfocused.
                     let window: Window.ShellWindow | null = null;
@@ -1980,6 +1983,8 @@ export class Ext extends Ecs.System<ExtEvent> {
                             // Avoid re-focusing a window that's already focused.
                             if (shell_window.entity !== this.prev_focused[1] && !shell_window.meta.minimized) {
                                 this.on_focused(shell_window);
+                            } else {
+                                this.show_border_on_focused();
                             }
                         } else if (!meta_window.is_override_redirect()) {
                             // Prevent focusing desktop extension in auto-tiler mode
@@ -2532,8 +2537,10 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
 
             // Only permit normal, dialog, and modal dialogs
-            const window_type = (meta as any).get_window_type();
-            if (window_type !== 0 && window_type !== 3 && window_type !== 4) {
+            const window_type = meta.window_type;
+            if (window_type !== Meta.WindowType.NORMAL &&
+                window_type !== Meta.WindowType.DIALOG &&
+                window_type !== Meta.WindowType.MODAL_DIALOG) {
                 return null;
             }
 

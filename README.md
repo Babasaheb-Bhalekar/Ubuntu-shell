@@ -62,13 +62,14 @@ There are additionally those who do want the traditional stacking window managem
 
 ## Installation
 
-This branch targets **Ubuntu 26.04 and GNOME Shell 50 on Wayland**. Install `gnome-shell`, `gnome-extensions`, `dconf-cli`, `xdg-terminal-exec`, `python3`, `make`, and `node-typescript`, then run:
+This branch targets **Ubuntu 26.04 and GNOME Shell 50 on Wayland**. Install the build and runtime tools, then run from this repository:
 
 ```sh
+sudo apt install gnome-shell dconf-cli xdg-terminal-exec python3 make node-typescript
 make local-install
 ```
 
-Local installation enables the extension and automatically applies Pop Shell's familiar shortcuts. It saves the previous values to `~/.config/pop-shell/shortcut-backup.json`. `make uninstall` restores a value only when it still matches the one Pop Shell installed, so later user changes are preserved. On a first install in GNOME Wayland, log out and back in to let GNOME discover the extension.
+Local installation enables the extension and automatically applies Pop Shell's familiar shortcuts. It saves the previous values to `~/.config/pop-shell/shortcut-backup.json`. `make uninstall` restores a value only when it still matches the one Pop Shell installed, so later user changes are preserved. Log out and back in after installation or an update so GNOME Wayland loads the new code.
 
 For a distribution package, install the package and run `python3 /usr/lib/pop-shell/scripts/shortcuts.py apply` in each user's session. Package installation cannot safely edit another user's DConf database. Run the same command with `restore` before removing the package if you want the previous shortcuts restored.
 

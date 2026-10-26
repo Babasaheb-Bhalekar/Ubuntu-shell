@@ -48,7 +48,11 @@ depcheck:
 
 enable:
 	@if gnome-extensions info "$(UUID)" >/dev/null 2>&1; then \
-		gnome-extensions enable "$(UUID)"; \
+		if gnome-extensions list --enabled | grep -Fxq "$(UUID)"; then \
+			echo 'Pop Shell files are updated. Log out and back in to load the new code in GNOME Wayland.'; \
+		else \
+			gnome-extensions enable "$(UUID)"; \
+		fi; \
 	else \
 		python3 scripts/shortcuts.py enable || exit $$?; \
 		echo 'Pop Shell is installed. Log out and back in to load it in GNOME Wayland.'; \

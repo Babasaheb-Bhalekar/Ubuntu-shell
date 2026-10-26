@@ -1,6 +1,7 @@
 #!/usr/bin/gjs --module
 
 import Gio from 'gi://Gio';
+import GioUnix from 'gi://GioUnix';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=3.0';
 import Pango from 'gi://Pango';
@@ -306,7 +307,7 @@ function list_header_func(row: any, before: null | any) {
 
 /** We'll use stdout for printing events for the shell to handle */
 const STDOUT = new Gio.DataOutputStream({
-    base_stream: new Gio.UnixOutputStream({ fd: 1 }),
+    base_stream: new GioUnix.OutputStream({ fd: 1 }),
 });
 
 /** Utility function for printing a message to stdout with an added newline */

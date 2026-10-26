@@ -13,9 +13,11 @@ gjs -m tests/config.js
 python3 -m unittest discover -s tests
 dbus-run-session -- gnome-shell-test-tool --headless --extension pop-shell@system76.com_1.2.0.zip tests/gnome50.js
 dbus-run-session -- gnome-shell-test-tool --headless --extension pop-shell@system76.com_1.2.0.zip tests/tiling-gnome50.js
+dbus-run-session -- gnome-shell-test-tool --headless --extension pop-shell@system76.com_1.2.0.zip tests/hint-gnome50.js
+dbus-run-session -- gnome-shell-test-tool --headless --wrap ./tests/second-monitor.sh --extension pop-shell@system76.com_1.2.0.zip tests/hint-gnome50.js
 ```
 
-The headless tests cover extension enable/disable, the panel tiling switch, `Super+Y`'s configured binding, launcher search and commands, and tiling of two Wayland app windows. The remaining checklist below is for manual testing in a GNOME 50 Wayland session, particularly keyboard events, mouse resizing and dragging, workspaces, monitor hotplug, fullscreen behavior, and the preferences dialog.
+The headless tests cover extension enable/disable, the panel tiling switch, `Super+Y`'s configured binding, launcher search and commands, tiling of two Wayland app windows, and active hints on focused windows, minimized windows, desktop surfaces, empty workspaces, and an empty second monitor. The remaining checklist below is for manual testing in a GNOME 50 Wayland session, particularly keyboard events, mouse resizing and dragging, monitor hotplug, fullscreen behavior, and the preferences dialog.
 
 ## Logs
 

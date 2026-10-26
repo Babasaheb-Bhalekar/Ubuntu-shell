@@ -114,6 +114,9 @@ export class ShellWindow {
                 this.meta.connect('notify::wm-class', () => {
                     this.wm_class_changed();
                 }),
+                this.meta.connect('notify::window-type', () => {
+                    this.ext.show_border_on_focused();
+                }),
                 this.meta.connect('raised', () => {
                     this.window_raised();
                 }),
@@ -297,7 +300,7 @@ export class ShellWindow {
 
         if (actor) {
             if (this.is_maximized()) {
-                meta.unmaximize(Meta.MaximizeFlags.BOTH);
+                meta.unmaximize();
             }
             actor.remove_all_transitions();
 
@@ -351,43 +354,30 @@ export class ShellWindow {
     show_border() {
         if (!this.border) return;
 
+        const permitted = () => {
+            const type = this.meta.window_type;
+            return this.ext.settings.active_hint() &&
+                (type === Meta.WindowType.NORMAL || type === Meta.WindowType.DIALOG ||
+                    type === Meta.WindowType.MODAL_DIALOG) &&
+                this.actor_exists() && this.same_workspace() &&
+                this.ext.focus_window() === this && this.meta.appears_focused &&
+                !this.meta.minimized && !this.meta.is_fullscreen() &&
+                (!this.is_single_max_screen() || this.is_snap_edge());
+        };
+
+        if (!permitted()) return;
         this.restack();
         this.update_border_style();
-        if (this.ext.settings.active_hint()) {
-            let border = this.border;
+        this.border.show();
 
-            const permitted = () => {
-                return (
-                    this.actor_exists() &&
-                    this.ext.focus_window() == this &&
-                    !this.meta.is_fullscreen() &&
-                    (!this.is_single_max_screen() || this.is_snap_edge()) &&
-                    !this.meta.minimized
-                );
-            };
-
-            if (permitted()) {
-                if (this.meta.appears_focused) {
-                    border.show();
-
-                    // Focus will be re-applied to fix windows moving across workspaces
-                    let applications = 0;
-
-                    // Ensure that the border is shown
-                    if (ACTIVE_HINT_SHOW_ID !== null) GLib.source_remove(ACTIVE_HINT_SHOW_ID);
-                    ACTIVE_HINT_SHOW_ID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
-                        if ((applications > 4 && !this.same_workspace()) || !permitted()) {
-                            ACTIVE_HINT_SHOW_ID = null;
-                            return GLib.SOURCE_REMOVE;
-                        }
-
-                        applications += 1;
-                        border.show();
-                        return GLib.SOURCE_CONTINUE;
-                    });
-                }
-            }
-        }
+        // Recheck once after focus and workspace animations finish.
+        if (ACTIVE_HINT_SHOW_ID !== null) GLib.source_remove(ACTIVE_HINT_SHOW_ID);
+        ACTIVE_HINT_SHOW_ID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
+            ACTIVE_HINT_SHOW_ID = null;
+            if (permitted()) this.border?.show();
+            else this.hide_border();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     same_workspace() {
@@ -494,6 +484,10 @@ export class ShellWindow {
     }
 
     hide_border() {
+        if (ACTIVE_HINT_SHOW_ID !== null) {
+            GLib.source_remove(ACTIVE_HINT_SHOW_ID);
+            ACTIVE_HINT_SHOW_ID = null;
+        }
         let b = this.border;
         if (b) b.hide();
     }
