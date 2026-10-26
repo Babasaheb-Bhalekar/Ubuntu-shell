@@ -39,6 +39,17 @@ const wom = global.workspace_manager;
 
 const Movement = movement.Movement;
 
+// DING creates an ordinary Wayland window before changing it to DESKTOP.
+// Its title is available during that transition, when Pop Shell must not tile
+// or raise it as an application window.
+export function is_desktop_surface(window: Meta.Window): boolean {
+    return window.window_type === Meta.WindowType.DESKTOP || is_ding_desktop(window);
+}
+
+function is_ding_desktop(window: Meta.Window): boolean {
+    return /^Desktop Icons \d+$/.test(window.get_title() ?? '');
+}
+
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import St from 'gi://St';
@@ -95,6 +106,10 @@ interface Injection {
 }
 
 export class Ext extends Ecs.System<ExtEvent> {
+    is_desktop_surface(window: Meta.Window): boolean {
+        return is_desktop_surface(window);
+    }
+
     /** Mechanism for managing keybindings */
     keybindings: Keybindings.Keybindings = new Keybindings.Keybindings(this);
 
@@ -706,8 +721,16 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     /// Fetches the window component from the entity associated with the metacity window metadata.
     get_window(meta: Meta.Window | null): Window.ShellWindow | null {
+        if (meta && is_desktop_surface(meta)) return null;
         let entity = this.window_entity(meta);
         return entity ? this.windows.get(entity) : null;
+    }
+
+    forget_desktop_window(window: Window.ShellWindow) {
+        if (!is_ding_desktop(window.meta)) return;
+        window.border?.destroy();
+        window.border = null;
+        this.on_destroy(window.entity);
     }
 
     inject(object: any, method: string, func: any) {
@@ -1987,9 +2010,9 @@ export class Ext extends Ecs.System<ExtEvent> {
                                 this.show_border_on_focused();
                             }
                         } else if (!meta_window.is_override_redirect()) {
-                            // Prevent focusing desktop extension in auto-tiler mode
-                            if (this.auto_tiler && meta_window.window_type === Meta.WindowType.DESKTOP) {
-                                refocus_tiled_window();
+                            // Keep desktop windows below application windows.
+                            if (is_desktop_surface(meta_window)) {
+                                if (this.auto_tiler) refocus_tiled_window();
                             } else {
                                 // This section fixes Steam's sub-menus.
                                 meta_window.activate(global.get_current_time());
@@ -2509,7 +2532,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     /// Fetches the window entity which is associated with the metacity window metadata.
     window_entity(meta: Meta.Window | null): Entity | null {
-        if (!meta) return null;
+        if (!meta || is_desktop_surface(meta)) return null;
 
         let id: number;
 
@@ -2557,6 +2580,7 @@ export class Ext extends Ecs.System<ExtEvent> {
             const grab_focus = () => {
                 this.schedule_idle(() => {
                     this.windows.with(entity, (window) => {
+                        if (is_desktop_surface(window.meta)) return;
                         window.meta.raise();
                         window.meta.unminimize();
                         window.activate(false);
@@ -2568,8 +2592,10 @@ export class Ext extends Ecs.System<ExtEvent> {
 
             if (this.auto_tiler && !win.meta.minimized && win.is_tilable(this)) {
                 let id = actor.connect('first-frame', () => {
-                    this.auto_tiler?.auto_tile(this, win, this.init);
-                    grab_focus();
+                    if (!is_desktop_surface(win.meta) && !win.destroying) {
+                        this.auto_tiler?.auto_tile(this, win, this.init);
+                        grab_focus();
+                    }
                     actor.disconnect(id);
                 });
             } else {

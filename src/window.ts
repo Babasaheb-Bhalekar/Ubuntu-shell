@@ -115,7 +115,11 @@ export class ShellWindow {
                     this.wm_class_changed();
                 }),
                 this.meta.connect('notify::window-type', () => {
+                    this.ext.forget_desktop_window(this);
                     this.ext.show_border_on_focused();
+                }),
+                this.meta.connect('notify::title', () => {
+                    this.ext.forget_desktop_window(this);
                 }),
                 this.meta.connect('raised', () => {
                     this.window_raised();
@@ -586,6 +590,7 @@ export class ShellWindow {
 /// Activates a window, and moves the mouse point.
 export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
     try {
+        if (ext.is_desktop_surface(win)) return;
         // Return if window was destroyed.
         if (!win.get_compositor_private()) return;
 

@@ -71,6 +71,8 @@ make local-install
 
 Local installation enables the extension and automatically applies Pop Shell's familiar shortcuts. It saves the previous values to `~/.config/pop-shell/shortcut-backup.json`. `make uninstall` restores a value only when it still matches the one Pop Shell installed, so later user changes are preserved. Log out and back in after installation or an update so GNOME Wayland loads the new code.
 
+Ubuntu's Desktop Icons NG (DING) can remain enabled alongside Pop Shell. Pop Shell excludes DING's `Desktop Icons N` windows from tiling, focus, and raising while DING changes them into desktop surfaces. Desktop icons should therefore stay behind application windows. After updating an existing installation, log out and back in before checking this behavior.
+
 For a distribution package, install the package and run `python3 /usr/lib/pop-shell/scripts/shortcuts.py apply` in each user's session. Package installation cannot safely edit another user's DConf database. Run the same command with `restore` before removing the package if you want the previous shortcuts restored.
 
 ### Packaging status
@@ -187,7 +189,7 @@ Please install the following as dependencies when developing:
 - TypeScript (`node-typescript` on Ubuntu)
 - Node.js for the calculator self-check
 
-Build with `make all`, run the calculator and shortcut checks with `node tests/calculator.mjs` and `python3 -m unittest discover -s tests`, and use `make zip-file` to prepare an isolated GNOME Shell test package. On Wayland, test in a nested GNOME Shell session rather than restarting the live desktop.
+Build with `make all`, run the calculator and shortcut checks with `node tests/calculator.mjs` and `python3 -m unittest discover -s tests`, and use `make zip-file` to prepare an isolated GNOME Shell test package. On Wayland, test in a nested GNOME Shell session rather than restarting the live desktop. For the desktop icon stacking regression, run `dbus-run-session -- gnome-shell-test-tool --headless --extension pop-shell@system76.com_1.2.0.zip tests/desktop-surface-gnome50.js`; this uses DING-style Wayland windows with immediate and delayed titles.
 
 [Discussions welcome on Pop Chat](https://chat.pop-os.org/pop-os/channels/development)
 
