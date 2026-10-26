@@ -61,7 +61,9 @@
 }
 
 .pop-shell-tab-inactive {
-    background: #9B8E8A;
+    background: rgba(18, 18, 18, 0.94);
+    border-color: #fff;
+    color: #fff;
 }
 
 .pop-shell-tab-urgent {

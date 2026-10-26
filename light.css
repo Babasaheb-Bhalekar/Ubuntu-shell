@@ -63,7 +63,10 @@
 }
 
 .pop-shell-tab-inactive {
-    background: #9B8E8A;
+    background: rgba(244, 247, 252, 0.72);
+    border-color: rgba(31, 40, 54, 0.30);
+    color: #17202e;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.9);
 }
 
 .pop-shell-tab-urgent {

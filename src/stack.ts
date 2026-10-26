@@ -9,12 +9,12 @@ import * as utils from './utils.js';
 const Arena = a.Arena;
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
+import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 const ACTIVE_TAB = 'pop-shell-tab pop-shell-tab-active';
 const INACTIVE_TAB = 'pop-shell-tab pop-shell-tab-inactive';
 const URGENT_TAB = 'pop-shell-tab pop-shell-tab-urgent';
-const INACTIVE_TAB_STYLE = '#9B8E8A';
 
 export var TAB_HEIGHT: number = 24;
 
@@ -58,6 +58,7 @@ const ContainerButton = GObject.registerClass(
 
 interface TabButton extends St.Button {
     set_title: (title: string) => void;
+    set_glass_blur_enabled: (enabled: boolean) => void;
 }
 
 const TabButton = GObject.registerClass(
@@ -110,12 +111,22 @@ const TabButton = GObject.registerClass(
             });
 
             this._title = label;
+            this._glass_blur = new Shell.BlurEffect({
+                mode: Shell.BlurMode.BACKGROUND,
+                radius: 12,
+                brightness: 0.75,
+            });
+            this.add_effect(this._glass_blur);
         }
 
         set_title(text: string) {
             if (this._title) {
                 this._title.text = text;
             }
+        }
+
+        set_glass_blur_enabled(enabled: boolean) {
+            this._glass_blur.set_enabled(enabled);
         }
     },
 );
@@ -180,8 +191,8 @@ export class Stack {
 
         let tab: Tab = { active, entity, signals: [], button: id, button_signal: null };
         let comp = this.tabs.length;
-        this.bind_hint_events(tab);
         this.tabs.push(tab);
+        this.bind_hint_events(tab);
         this.watch_signals(comp, id, window);
         this.widgets.tabs.add_child(button);
     }
@@ -226,7 +237,7 @@ export class Stack {
 
         let id = 0;
 
-        for (const [idx, component] of this.tabs.entries()) {
+        for (const component of this.tabs) {
             let name;
 
             this.window_exec(id, component.entity, (window) => {
@@ -246,17 +257,7 @@ export class Stack {
                 let button = this.buttons.get(component.button);
                 if (button) {
                     button.set_style_class_name(name);
-                    let tab_color = '';
-                    if (component.active) {
-                        let settings = this.ext.settings;
-                        let color_value = settings.hint_color_rgba();
-                        tab_color = `${color_value}; color: ${utils.is_dark(color_value) ? 'white' : 'black'}`;
-                    } else {
-                        tab_color = `${INACTIVE_TAB_STYLE}`;
-                    }
-
-                    const tab_border_radius = this.get_tab_border_radius(idx);
-                    button.set_style(`background: ${tab_color}; border-radius: ${tab_border_radius};`);
+                    this.change_tab_color(component);
                 }
             });
 
@@ -349,14 +350,13 @@ export class Stack {
         let settings = this.ext.settings;
         let button = this.buttons.get(tab.button);
         if (button) {
-            let tab_color = '';
-            if (Ecs.entity_eq(tab.entity, this.active)) {
+            let style = '';
+            if (tab.active) {
                 let color_value = settings.hint_color_rgba();
-                tab_color = `background: ${color_value}; color: ${utils.is_dark(color_value) ? 'white' : 'black'}`;
-            } else {
-                tab_color = `background: ${INACTIVE_TAB_STYLE}`;
+                style = `background: ${color_value}; color: ${utils.is_dark(color_value) ? 'white' : 'black'};`;
             }
-            button.set_style(tab_color);
+            button.set_style(`${style} border-radius: ${this.get_tab_border_radius(this.tabs.indexOf(tab))};`);
+            button.set_glass_blur_enabled(!tab.active);
         }
     }
 
