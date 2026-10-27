@@ -1,3 +1,11 @@
+ubuntu-shell (2.0.0) resolute; urgency=medium
+
+  * Rename the GNOME 50 extension and package to Ubuntu Shell.
+  * Migrate existing tiling settings, floating exceptions, and shortcut backups.
+  * Remove the optional System76 scheduler integration.
+
+ -- babasaheb <babasahebbhalekar8245@gmail.com>  Tue, 27 Oct 2026 11:00:00 +0530
+
 pop-shell (1.2.0) resolute; urgency=medium
 
   * Port Pop Shell to GNOME Shell 50 on Ubuntu 26.04.

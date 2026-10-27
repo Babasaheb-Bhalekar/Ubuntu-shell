@@ -7,8 +7,8 @@ export var METRICS = {};
 
 export async function run() {
     await Scripting.sleep(4000);
-    const button = Main.panel.statusArea['pop-shell'];
-    if (!button) throw new Error('Pop Shell did not enable');
+    const button = Main.panel.statusArea['ubuntu-shell'];
+    if (!button) throw new Error('Ubuntu Shell did not enable');
     button.menu._getMenuItems()[0].toggle();
     const launcher = new Gio.SubprocessLauncher({flags: Gio.SubprocessFlags.NONE});
     launcher.setenv('WAYLAND_DISPLAY', 'gnome-shell-test-display', true);

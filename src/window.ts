@@ -6,7 +6,6 @@ import * as utils from './utils.js';
 import type { Entity } from './ecs.js';
 import type { Ext } from './extension.js';
 import type { Rectangle } from './rectangle.js';
-import * as scheduler from './scheduler.js';
 import * as focus from './focus.js';
 
 import Gdk from 'gi://Gdk';
@@ -55,7 +54,7 @@ export class ShellWindow {
     smart_gapped: boolean = false;
 
     border: null | St.Bin = new St.Bin({
-        style_class: 'pop-shell-active-hint pop-shell-border-normal',
+        style_class: 'ubuntu-shell-active-hint ubuntu-shell-border-normal',
     });
 
     prev_rect: null | Rectangular = null;
@@ -504,10 +503,10 @@ export class ShellWindow {
 
         if (border) {
             if (!(this.is_max_screen() || this.is_snap_edge())) {
-                border.remove_style_class_name('pop-shell-border-maximize');
+                border.remove_style_class_name('ubuntu-shell-border-maximize');
             } else {
                 borderSize = 0;
-                border.add_style_class_name('pop-shell-border-maximize');
+                border.add_style_class_name('ubuntu-shell-border-maximize');
             }
 
             const stack_number = this.stack;
@@ -603,7 +602,6 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
         const workspace = win.get_workspace();
         if (!workspace) return;
 
-        scheduler.setForeground(win);
 
         win.unminimize();
         workspace.activate_with_focus(win, global.get_current_time());

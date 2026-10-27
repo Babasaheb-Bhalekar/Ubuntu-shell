@@ -8,10 +8,10 @@ endif
 
 ifeq ($(strip $(DESTDIR)),)
 INSTALLBASE = $(XDG_DATA_HOME)/gnome-shell/extensions
-SCRIPTS_BASE = $(XDG_DATA_HOME)/pop-shell/scripts
+SCRIPTS_BASE = $(XDG_DATA_HOME)/ubuntu-shell/scripts
 else
 INSTALLBASE = $(DESTDIR)/usr/share/gnome-shell/extensions
-SCRIPTS_BASE = $(DESTDIR)/usr/lib/pop-shell/scripts
+SCRIPTS_BASE = $(DESTDIR)/usr/lib/ubuntu-shell/scripts
 endif
 INSTALLNAME = $(UUID)
 
@@ -30,6 +30,7 @@ clean:
 
 # Configure local settings on system
 configure:
+	python3 scripts/shortcuts.py migrate
 	python3 scripts/shortcuts.py apply
 
 compile: $(sources) clean
@@ -47,24 +48,25 @@ depcheck:
 	fi
 
 enable:
+	@python3 scripts/shortcuts.py enable
 	@if gnome-extensions info "$(UUID)" >/dev/null 2>&1; then \
 		if gnome-extensions list --enabled | grep -Fxq "$(UUID)"; then \
-			echo 'Pop Shell files are updated. Log out and back in to load the new code in GNOME Wayland.'; \
+			echo 'Ubuntu Shell files are updated. Log out and back in to load the new code in GNOME Wayland.'; \
 		else \
 			gnome-extensions enable "$(UUID)"; \
 		fi; \
 	else \
-		python3 scripts/shortcuts.py enable || exit $$?; \
-		echo 'Pop Shell is installed. Log out and back in to load it in GNOME Wayland.'; \
+		echo 'Ubuntu Shell is installed. Log out and back in to load it in GNOME Wayland.'; \
 	fi
 
 disable:
-	gnome-extensions disable "pop-shell@system76.com"
+	python3 scripts/shortcuts.py disable
 
 listen:
 	journalctl -o cat -n 0 -f "$$(which gnome-shell)" | grep -v warning
 
 local-install: depcheck compile install configure enable
+	@python3 -c 'from pathlib import Path; import shutil; p=Path("$(INSTALLBASE)/pop-shell@system76.com"); shutil.rmtree(p) if p.is_dir() and not p.is_symlink() else None'
 
 install:
 	rm -rf $(INSTALLBASE)/$(INSTALLNAME)
@@ -73,6 +75,7 @@ install:
 	cp scripts/shortcuts.py $(SCRIPTS_BASE)/
 
 uninstall:
+	python3 scripts/shortcuts.py disable
 	python3 scripts/shortcuts.py restore
 	rm -rf $(INSTALLBASE)/$(INSTALLNAME)
 

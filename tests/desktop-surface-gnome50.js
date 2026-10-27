@@ -7,10 +7,10 @@ export var METRICS = {};
 
 export async function run() {
     await Scripting.sleep(4000);
-    const pop = Main.extensionManager.lookup('pop-shell@system76.com');
-    if (!pop?.stateObj) throw new Error('Pop Shell did not enable');
+    const pop = Main.extensionManager.lookup('ubuntu-shell@babasaheb-bhalekar.github.io');
+    if (!pop?.stateObj) throw new Error('Ubuntu Shell did not enable');
     if (!pop.stateObj.getSettings().get_boolean('tile-by-default'))
-        Main.panel.statusArea['pop-shell'].menu._getMenuItems()[0].toggle();
+        Main.panel.statusArea['ubuntu-shell'].menu._getMenuItems()[0].toggle();
 
     const launcher = new Gio.SubprocessLauncher({flags: Gio.SubprocessFlags.NONE});
     launcher.setenv('WAYLAND_DISPLAY', 'gnome-shell-test-display', true);

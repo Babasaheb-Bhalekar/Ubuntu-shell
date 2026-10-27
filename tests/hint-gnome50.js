@@ -8,7 +8,7 @@ export var METRICS = {};
 
 function visibleHints() {
     return global.window_group.get_children().filter(actor =>
-        actor instanceof St.Bin && actor.has_style_class_name('pop-shell-active-hint') && actor.visible);
+        actor instanceof St.Bin && actor.has_style_class_name('ubuntu-shell-active-hint') && actor.visible);
 }
 
 function assertHints(count, stage) {
@@ -18,8 +18,8 @@ function assertHints(count, stage) {
 
 export async function run() {
     await Scripting.sleep(4000);
-    const extension = Main.extensionManager.lookup('pop-shell@system76.com');
-    if (!extension?.stateObj) throw new Error('Pop Shell did not enable');
+    const extension = Main.extensionManager.lookup('ubuntu-shell@babasaheb-bhalekar.github.io');
+    if (!extension?.stateObj) throw new Error('Ubuntu Shell did not enable');
     new Gio.Settings({schema_id: 'org.gnome.mutter'}).set_boolean('workspaces-only-on-primary', false);
     extension.stateObj.getSettings().set_boolean('active-hint', true);
     await Scripting.sleep(200);

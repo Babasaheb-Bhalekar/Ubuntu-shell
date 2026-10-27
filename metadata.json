@@ -1,9 +1,9 @@
 {
-    "name": "Pop Shell",
-    "description": "Pop Shell",
-    "version": 2,
-    "uuid": "pop-shell@system76.com",
-    "settings-schema": "org.gnome.shell.extensions.pop-shell",
+    "name": "Ubuntu Shell",
+    "description": "Keyboard-driven tiling and launcher for Ubuntu 26.04",
+    "version": 3,
+    "uuid": "ubuntu-shell@babasaheb-bhalekar.github.io",
+    "settings-schema": "org.gnome.shell.extensions.ubuntu-shell",
     "shell-version": [
         "50"
     ]

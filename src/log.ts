@@ -8,20 +8,20 @@ export enum LOG_LEVELS {
 }
 
 /**
- * parse level at runtime so we don't have to restart popshell
+ * parse level at runtime so we don't have to restart ubuntu_shell
  */
 export function log_level() {
-    // log.js is at the level of prefs.js where the popshell Ext instance
+    // log.js is at the level of prefs.js where the ubuntu_shell Ext instance
     // is not yet available or visible, so we have to use the built in
     // ExtensionUtils to get the current settings
-    let settings = globalThis.popShellExtension.getSettings();
+    let settings = globalThis.ubuntuShellExtension.getSettings();
     let log_level = settings.get_uint('log-level');
 
     return log_level;
 }
 
 export function log(text: string) {
-    (globalThis as any).log('pop-shell: ' + text);
+    (globalThis as any).log('ubuntu-shell: ' + text);
 }
 
 export function error(text: string) {

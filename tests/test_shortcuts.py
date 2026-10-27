@@ -27,8 +27,55 @@ class ShortcutTest(unittest.TestCase):
         self.assertEqual(
             commands[-1],
             ("gsettings", "set", "org.gnome.shell", "enabled-extensions",
-             "['existing@example.com', 'pop-shell@system76.com']"),
+             "['existing@example.com', 'ubuntu-shell@babasaheb-bhalekar.github.io']"),
         )
+
+    def test_enable_replaces_legacy_extension(self):
+        commands = []
+
+        def fake_run(args, **_kwargs):
+            commands.append(args)
+            return CompletedProcess(args, 0, "['existing@example.com', 'pop-shell@system76.com']")
+
+        with patch.object(shortcuts.subprocess, "run", fake_run):
+            shortcuts.enable()
+
+        self.assertEqual(
+            commands[-1][-1],
+            "['existing@example.com', 'ubuntu-shell@babasaheb-bhalekar.github.io']",
+        )
+
+    def test_migrate_keeps_existing_new_preferences_and_backup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            legacy = root / "pop-shell"
+            legacy.mkdir()
+            (legacy / "config.json").write_text('{"float": []}')
+            (legacy / "shortcut-backup.json").write_text('{"old": "value"}')
+            state = {
+                shortcuts.LEGACY_SCHEMA_PATH + "gap-inner": "uint32 6",
+                shortcuts.LEGACY_SCHEMA_PATH + "pop-workspace-up": "['<Super>Page_Up']",
+                shortcuts.SCHEMA_PATH + "gap-inner": "uint32 4",
+            }
+
+            def fake_dconf(action, key, *args):
+                if action == "list":
+                    return "gap-inner\npop-workspace-up"
+                if action == "read":
+                    return state.get(key, "")
+                if action == "write":
+                    state[key] = args[0]
+                return ""
+
+            with patch.object(shortcuts, "BACKUP", root / "ubuntu-shell" / "shortcut-backup.json"), patch.object(
+                shortcuts, "dconf", fake_dconf
+            ):
+                shortcuts.migrate()
+
+            self.assertEqual(state[shortcuts.SCHEMA_PATH + "gap-inner"], "uint32 4")
+            self.assertEqual(state[shortcuts.SCHEMA_PATH + "ubuntu-workspace-up"], "['<Super>Page_Up']")
+            self.assertEqual((root / "ubuntu-shell" / "config.json").read_text(), '{"float": []}')
+            self.assertEqual((root / "ubuntu-shell" / "shortcut-backup.json").read_text(), '{"old": "value"}')
 
     def test_apply_and_restore_preserve_later_user_change(self):
         with tempfile.TemporaryDirectory() as directory:

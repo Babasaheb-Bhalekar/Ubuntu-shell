@@ -1,74 +1,74 @@
-.pop-shell-active-hint {
+.ubuntu-shell-active-hint {
     border-style: solid;
     border-color: #FBB86C;
     border-radius: 5px;
     box-shadow: inset 0 0 0 1px rgba(24, 23, 23, 0);
 }
 
-.pop-shell-overlay {
+.ubuntu-shell-overlay {
     background-color: rgba(53, 132, 228, 0.3);
 }
 
-.pop-shell-search {
+.ubuntu-shell-search {
     background-color: #24252b;
     border: 1px solid #4b4e59;
     border-radius: 14px;
     padding: 16px;
 }
 
-.pop-shell-entry {
+.ubuntu-shell-entry {
     border-radius: 9px;
     padding: 10px 12px;
 }
 
-.pop-shell-search-list {
+.ubuntu-shell-search-list {
     padding-top: 8px;
 }
 
-.pop-shell-border-normal {
+.ubuntu-shell-border-normal {
     border-width: 3px;
 }
 
-.pop-shell-border-maximize {
+.ubuntu-shell-border-maximize {
     border-width: 3px;
 }
 
-.pop-shell-search-element:select{
+.ubuntu-shell-search-element:select{
     background: #384f73;
     border-radius: 9px;
     color: #EDEDED;
 }
 
-.pop-shell-search-icon {
+.ubuntu-shell-search-icon {
     margin-right: 10px;
 }
 
-.pop-shell-search-cat {
+.ubuntu-shell-search-cat {
     margin-right: 10px;
 }
 
-.pop-shell-search-element {
+.ubuntu-shell-search-element {
     padding: 8px 10px;
     border-radius: 9px;
 }
 
-.pop-shell-tab {
+.ubuntu-shell-tab {
     border: 1px solid #333;
     color: #000;
     padding: 0 1em;
 }
 
-.pop-shell-tab-active {
+.ubuntu-shell-tab-active {
     background: #FBB86C;
 }
 
-.pop-shell-tab-inactive {
+.ubuntu-shell-tab-inactive {
     background: rgba(25, 29, 41, 0.68);
     border-color: rgba(255, 255, 255, 0.30);
     color: #f7f8fc;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
 }
 
-.pop-shell-tab-urgent {
+.ubuntu-shell-tab-urgent {
     background: #D00;
 }

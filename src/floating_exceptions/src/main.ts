@@ -14,7 +14,7 @@ imports.searchPath.push(SCRIPT_DIR);
 
 import * as config from './config.js';
 
-const WM_CLASS_ID = 'pop-shell-exceptions';
+const WM_CLASS_ID = 'ubuntu-shell-exceptions';
 
 interface SelectWindow {
     tag: 0;
@@ -318,7 +318,7 @@ function println(message: string) {
 /** Initialize GTK and start the application */
 function main() {
     GLib.set_prgname(WM_CLASS_ID);
-    GLib.set_application_name('Pop Shell Floating Window Exceptions');
+    GLib.set_application_name('Ubuntu Shell Floating Window Exceptions');
 
     Gtk.init(null);
 

@@ -1,7 +1,8 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: pop-shell
-Source: https://github.com/pop-os/shell
+Upstream-Name: ubuntu-shell
+Source: https://github.com/Babasaheb-Bhalekar/Ubuntu-shell
 
 Files: *
 Copyright: 2020 System76
+           2026 Babasaheb Bhalekar
 License: GPL-3

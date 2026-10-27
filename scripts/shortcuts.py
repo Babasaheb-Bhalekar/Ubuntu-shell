@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Apply Pop Shell's per-user GNOME shortcuts and restore prior values safely."""
+"""Apply Ubuntu Shell's per-user GNOME shortcuts and restore prior values safely."""
 
 import ast
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -40,17 +41,43 @@ CHANGES = {
     "/org/gnome/mutter/workspaces-only-on-primary": "false",
 }
 
-BACKUP = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "pop-shell" / "shortcut-backup.json"
-UUID = "pop-shell@system76.com"
+BACKUP = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "ubuntu-shell" / "shortcut-backup.json"
+UUID = "ubuntu-shell@babasaheb-bhalekar.github.io"
+LEGACY_UUID = "pop-shell@system76.com"
+SCHEMA_PATH = "/org/gnome/shell/extensions/ubuntu-shell/"
+LEGACY_SCHEMA_PATH = "/org/gnome/shell/extensions/pop-shell/"
 
 
 def dconf(*args):
     return subprocess.run(("dconf", *args), check=True, capture_output=True, text=True).stdout.strip()
 
 
+def migrate():
+    """Copy existing preferences and the original shortcut backup once."""
+    for old_key in dconf("list", LEGACY_SCHEMA_PATH).splitlines():
+        if old_key.endswith("/"):
+            continue
+        new_key = old_key.replace("pop-workspace", "ubuntu-workspace").replace("pop-monitor", "ubuntu-monitor")
+        old_value = dconf("read", LEGACY_SCHEMA_PATH + old_key)
+        if old_value and not dconf("read", SCHEMA_PATH + new_key):
+            dconf("write", SCHEMA_PATH + new_key, old_value)
+
+    legacy_dir = BACKUP.parent.parent / "pop-shell"
+    BACKUP.parent.mkdir(parents=True, exist_ok=True)
+    old_backup = legacy_dir / BACKUP.name
+    if old_backup.exists() and not BACKUP.exists():
+        shutil.copy2(old_backup, BACKUP)
+        BACKUP.chmod(0o600)
+    old_config = legacy_dir / "config.json"
+    new_config = BACKUP.parent / old_config.name
+    if old_config.exists() and not new_config.exists():
+        shutil.copy2(old_config, new_config)
+    print("Migrated available Ubuntu Shell settings")
+
+
 def apply():
     if BACKUP.exists():
-        print(f"Pop Shell shortcut backup already exists: {BACKUP}")
+        print(f"Ubuntu Shell shortcut backup already exists: {BACKUP}")
         return
     previous = {}
     for key, value in CHANGES.items():
@@ -67,7 +94,7 @@ def apply():
     except Exception:
         restore()
         raise
-    print(f"Applied {len(previous)} Pop Shell shortcut and desktop settings")
+    print(f"Applied {len(previous)} Ubuntu Shell shortcut and desktop settings")
 
 
 def restore():
@@ -93,8 +120,26 @@ def enable():
     enabled = ast.literal_eval(current.removeprefix("@as "))
     if not isinstance(enabled, list) or not all(isinstance(item, str) for item in enabled):
         raise ValueError("Unexpected GNOME enabled-extensions value")
+    before = enabled.copy()
+    if LEGACY_UUID in enabled:
+        enabled.remove(LEGACY_UUID)
     if UUID not in enabled:
         enabled.append(UUID)
+    if enabled != before:
+        subprocess.run(
+            ("gsettings", "set", "org.gnome.shell", "enabled-extensions", repr(enabled)),
+            check=True,
+        )
+
+
+def disable():
+    current = subprocess.run(
+        ("gsettings", "get", "org.gnome.shell", "enabled-extensions"),
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    enabled = ast.literal_eval(current.removeprefix("@as "))
+    if UUID in enabled:
+        enabled.remove(UUID)
         subprocess.run(
             ("gsettings", "set", "org.gnome.shell", "enabled-extensions", repr(enabled)),
             check=True,
@@ -102,6 +147,6 @@ def enable():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in ("apply", "restore", "enable"):
-        raise SystemExit("usage: shortcuts.py apply|restore|enable")
+    if len(sys.argv) != 2 or sys.argv[1] not in ("apply", "restore", "enable", "disable", "migrate"):
+        raise SystemExit("usage: shortcuts.py apply|restore|enable|disable|migrate")
     globals()[sys.argv[1]]()

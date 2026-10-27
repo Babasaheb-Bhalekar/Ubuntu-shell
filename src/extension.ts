@@ -23,7 +23,6 @@ import * as stack from './stack.js';
 import * as add_exception from './dialog_add_exception.js';
 import * as exec from './executor.js';
 import * as dbus_service from './dbus_service.js';
-import * as scheduler from './scheduler.js';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import type { Entity } from './ecs.js';
 import type { ExtEvent } from './events.js';
@@ -40,7 +39,7 @@ const wom = global.workspace_manager;
 const Movement = movement.Movement;
 
 // DING creates an ordinary Wayland window before changing it to DESKTOP.
-// Its title is available during that transition, when Pop Shell must not tile
+// Its title is available during that transition, when Ubuntu Shell must not tile
 // or raise it as an application window.
 export function is_desktop_surface(window: Meta.Window): boolean {
     return window.window_type === Meta.WindowType.DESKTOP || is_ding_desktop(window);
@@ -119,7 +118,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     // Widgets
 
     /** An overlay which shows a preview of where a window will be moved */
-    overlay: St.Widget = new St.BoxLayout({ style_class: 'pop-shell-overlay', visible: false });
+    overlay: St.Widget = new St.BoxLayout({ style_class: 'ubuntu-shell-overlay', visible: false });
 
     /** The application launcher, focus search, and calculator dialog */
     window_search: Launcher = new launcher.Launcher(this);
@@ -889,7 +888,6 @@ export class Ext extends Ecs.System<ExtEvent> {
     /** Triggered when a window has been focused */
     on_focused(win: Window.ShellWindow) {
         this.workspace_active.set(this.active_workspace(), win.entity);
-        scheduler.setForeground(win.meta);
 
         this.size_signals_unblock(win);
 
@@ -2660,12 +2658,12 @@ let ext: Ext | null = null;
 let indicator: Indicator | null = null;
 
 declare global {
-    var popShellExtension: any;
+    var ubuntuShellExtension: any;
 }
 
-export default class PopShellExtension extends Extension {
+export default class UbuntuShellExtension extends Extension {
     enable() {
-        globalThis.popShellExtension = this;
+        globalThis.ubuntuShellExtension = this;
         log.info('enable');
 
         if (!ext) {
@@ -2694,7 +2692,7 @@ export default class PopShellExtension extends Extension {
 
         if (!indicator) {
             indicator = new PanelSettings.Indicator(ext);
-            panel.addToStatusArea('pop-shell', indicator.button);
+            panel.addToStatusArea('ubuntu-shell', indicator.button);
         }
 
         ext.keybindings.enable(ext.keybindings.global).enable(ext.keybindings.window_focus);
@@ -2712,7 +2710,7 @@ export default class PopShellExtension extends Extension {
                 return;
             }
 
-            delete globalThis.popShellExtension;
+            delete globalThis.ubuntuShellExtension;
             ext.injections_remove();
             ext.signals_remove();
             ext.exit_modes();
@@ -2763,7 +2761,7 @@ function load_theme(style: Style): string | any {
                 existing_theme.unload_stylesheet(s);
             }
 
-            // Merge theme update with pop shell styling
+            // Merge theme update with Ubuntu Shell styling
             existing_theme.load_stylesheet(STYLESHEETS[pop_stylesheet]);
 
             // Perform theme update
@@ -2798,14 +2796,14 @@ let default_getcaption_windowpreview: any;
 
 /**
  * Decorates the default gnome-shell workspace/overview handling
- * of skip_task_bar. And have those window types included in pop-shell.
+ * of skip_task_bar. And have those window types included in ubuntu-shell.
  * Should only be called on extension#enable()
  *
  * NOTE to future maintainer:
  * Skip taskbar has been left out by upstream for a reason. And the
  * Shell.WindowTracker seems to skip handling skip taskbar windows, so they are
  * null or undefined. GNOME 40+ and lower version checking should be done to
- * constantly support having them within pop-shell.
+ * constantly support having them within ubuntu-shell.
  *
  * Known skip taskbars ddterm, conky, guake, minimized to tray apps, etc.
  *
@@ -2925,7 +2923,7 @@ function _show_skip_taskbar_windows(ext: Ext) {
 }
 
 /**
- * This is the cleanup/restore of the decorator for skip_taskbar when pop-shell
+ * This is the cleanup/restore of the decorator for skip_taskbar when ubuntu-shell
  * is disabled.
  * Should only be called on extension#disable()
  *

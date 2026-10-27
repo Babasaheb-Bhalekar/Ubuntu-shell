@@ -1,18 +1,19 @@
-Source: pop-shell
+Source: ubuntu-shell
 Section: gnome
 Priority: optional
 Maintainer: babasaheb <babasahebbhalekar8245@gmail.com>
 Build-Depends: debhelper-compat (=13), libglib2.0-bin, node-typescript
 Standards-Version: 4.7.2
-Homepage: https://github.com/pop-os/shell
+Homepage: https://github.com/Babasaheb-Bhalekar/Ubuntu-shell
 
-Package: pop-shell
+Package: ubuntu-shell
 Architecture: all
+Conflicts: pop-shell
 Depends:
     ${misc:Depends},
     gnome-shell (>= 50),
     python3,
     dconf-cli,
     xdg-terminal-exec
-Description: Pop Shell tiling extension for GNOME 50
+Description: Ubuntu Shell tiling extension for GNOME 50
  Keyboard-driven tiling and window management for Ubuntu 26.04.

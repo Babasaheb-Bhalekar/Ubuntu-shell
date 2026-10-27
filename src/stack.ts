@@ -12,9 +12,9 @@ import GObject from 'gi://GObject';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
-const ACTIVE_TAB = 'pop-shell-tab pop-shell-tab-active';
-const INACTIVE_TAB = 'pop-shell-tab pop-shell-tab-inactive';
-const URGENT_TAB = 'pop-shell-tab pop-shell-tab-urgent';
+const ACTIVE_TAB = 'ubuntu-shell-tab ubuntu-shell-tab-active';
+const INACTIVE_TAB = 'ubuntu-shell-tab ubuntu-shell-tab-inactive';
+const URGENT_TAB = 'ubuntu-shell-tab ubuntu-shell-tab-urgent';
 
 export var TAB_HEIGHT: number = 24;
 
@@ -32,7 +32,7 @@ interface StackWidgets {
 
 function stack_widgets_new(): StackWidgets {
     let tabs = new St.BoxLayout({
-        style_class: 'pop-shell-stack',
+        style_class: 'ubuntu-shell-stack',
         x_expand: true,
     });
 

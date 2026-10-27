@@ -42,7 +42,7 @@ function settings_new_schema(schema: string): Settings {
 
     if (!schemaObj) {
         throw new Error(
-            'Schema ' + schema + ' could not be found for extension pop-shell' + '. Please check your installation.',
+            'Schema ' + schema + ' could not be found for extension ubuntu-shell' + '. Please check your installation.',
         );
     }
 
@@ -62,7 +62,7 @@ const SMART_GAPS = 'smart-gaps';
 const SNAP_TO_GRID = 'snap-to-grid';
 const TILE_BY_DEFAULT = 'tile-by-default';
 const HINT_COLOR_RGBA = 'hint-color-rgba';
-const DEFAULT_RGBA_COLOR = 'rgba(251, 184, 108, 1)'; //pop-orange
+const DEFAULT_RGBA_COLOR = 'rgba(251, 184, 108, 1)'; //Ubuntu orange
 const LOG_LEVEL = 'log-level';
 const SHOW_SKIPTASKBAR = 'show-skip-taskbar';
 const MOUSE_CURSOR_FOLLOWS_ACTIVE_WINDOW = 'mouse-cursor-follows-active-window';
@@ -70,7 +70,7 @@ const MOUSE_CURSOR_FOCUS_LOCATION = 'mouse-cursor-focus-location';
 const MAX_WINDOW_WIDTH = 'max-window-width';
 
 export class ExtensionSettings {
-    ext: Settings = settings_new_schema('org.gnome.shell.extensions.pop-shell');
+    ext: Settings = settings_new_schema('org.gnome.shell.extensions.ubuntu-shell');
     int: Settings | null = settings_new_id('org.gnome.desktop.interface');
     mutter: Settings | null = settings_new_id('org.gnome.mutter');
     shell: Settings | null = settings_new_id('org.gnome.shell.extensions.user-theme');

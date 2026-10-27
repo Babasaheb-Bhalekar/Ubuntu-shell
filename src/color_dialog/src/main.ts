@@ -9,7 +9,7 @@ const EXT_PATH_DEFAULTS = [
     GLib.get_home_dir() + '/.local/share/gnome-shell/extensions/',
     '/usr/share/gnome-shell/extensions/',
 ];
-const DEFAULT_HINT_COLOR = 'rgba(251, 184, 108, 1)'; //pop-orange
+const DEFAULT_HINT_COLOR = 'rgba(251, 184, 108, 1)'; //Ubuntu orange
 
 /** Look for the extension in path */
 function getExtensionPath(uuid: string) {
@@ -29,7 +29,7 @@ function getExtensionPath(uuid: string) {
 }
 
 function getSettings(schema: string) {
-    let extensionPath = getExtensionPath('pop-shell@system76.com');
+    let extensionPath = getExtensionPath('ubuntu-shell@babasaheb-bhalekar.github.io');
     if (!extensionPath) throw new Error('getSettings() can only be called when extension is available');
 
     // The following will load a custom path for a user defined gsettings/schemas folder
@@ -48,11 +48,11 @@ function getSettings(schema: string) {
     return new Gio.Settings({ settings_schema: schemaObj });
 }
 /**
- * Launch a Gtk.ColorChooserDialog. And then save the color RGBA/alpha values in GSettings of Pop-Shell.
+ * Launch a Gtk.ColorChooserDialog. And then save the color RGBA/alpha values in GSettings of Ubuntu Shell.
  * Using the settings.connect('changed') mechanism, the extension is able to listen to when the color changes in realtime.
  */
 function launch_color_dialog() {
-    let popshell_settings = getSettings('org.gnome.shell.extensions.pop-shell');
+    let ubuntu_shell_settings = getSettings('org.gnome.shell.extensions.ubuntu-shell');
 
     let color_dialog = new Gtk.ColorChooserDialog({
         title: 'Choose Color',
@@ -62,7 +62,7 @@ function launch_color_dialog() {
 
     // Use the new spec format for Gtk.Color thru Gdk.RGBA
     let rgba = new Gdk.RGBA();
-    if (rgba.parse(popshell_settings.get_string('hint-color-rgba'))) {
+    if (rgba.parse(ubuntu_shell_settings.get_string('hint-color-rgba'))) {
         color_dialog.set_rgba(rgba);
     } else {
         rgba.parse(DEFAULT_HINT_COLOR);
@@ -76,7 +76,7 @@ function launch_color_dialog() {
     } else if (response === Gtk.ResponseType.OK) {
         // save the selected RGBA to GSettings
         // TODO, save alpha instead of always 1.0
-        popshell_settings.set_string('hint-color-rgba', color_dialog.get_rgba().to_string());
+        ubuntu_shell_settings.set_string('hint-color-rgba', color_dialog.get_rgba().to_string());
         Gio.Settings.sync();
         color_dialog.destroy();
     }
